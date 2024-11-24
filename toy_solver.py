@@ -11,10 +11,47 @@ measurements = {
         0: np.array([[10,-3,1]]).T,
         1: np.array([[6,-3,1]]).T,
         2: np.array([[2,-3,1]]).T,
+        3: np.array([[-2,-3,1]]).T,
+        4: np.array([[-6,-3,1]]).T,
+    },
+    1: {
+        0: np.array([[8,3,-1]]).T,
+        1: np.array([[4,3,-1]]).T,
+        2: np.array([[0,3,-1]]).T,
+        3: np.array([[-4,3,-1]]).T,
+        4: np.array([[-8,3,-1]]).T,
+    },
+    2: {
+        0: np.array([[9,7,-4]]).T,
+        1: np.array([[5,7,-4]]).T,
+        2: np.array([[1,7,-4]]).T,
+        3: np.array([[-3,7,-4]]).T,
+        4: np.array([[-7,7,-4]]).T,
+    },
+    3: {
+        0: np.array([[1,2,2]]).T,
+        1: np.array([[-3,2,2]]).T,
+        2: np.array([[-7,2,2]]).T,
+        3: np.array([[-11,2,2]]).T,
+        4: np.array([[-15,2,2]]).T,
+    },
+    4: {
+        0: np.array([[0,4,1]]).T,
+        1: np.array([[-4,4,1]]).T,
+        2: np.array([[-8,4,1]]).T,
+        3: np.array([[-12,4,1]]).T,
+        4: np.array([[-16,4,1]]).T,
+    },
+    5: {
+        0: np.array([[14,-6,5]]).T,
+        1: np.array([[10,-6,5]]).T,
+        2: np.array([[6,-6,5]]).T,
+        3: np.array([[2,-6,5]]).T,
+        4: np.array([[-2,-6,5]]).T,
     },
 }
 
-N = 3
+N = 5
 K = len(measurements)
 dim_x = 21 * N + 3 * K - 9
 dim_v = 3 * N - 3
@@ -133,20 +170,20 @@ for i in range(18*N-9+3*K, 18*N-6+3*K):
         A[j,i] = 1
         constraints.append(cp.trace(A @ X) == 0)
 
-# TODO: REMOVE. ZERO ANGULAR VELOCITY TEST
-for i in range(9*N-9):
-    for j in range(dim_x):
-        A = np.zeros((dim_x, dim_x))
-        if i == j:
-            A[i,j] = 1
-            A[j,i] = 1
-        else:
-            A[i,j] = 0.5
-            A[j,i] = 0.5
-        if (i % 9 == 0 or i % 9 == 4 or i % 9 == 8) and (j % 9 == 0 or j % 9 == 4 or j % 9 == 8) and j < 9*N-9:
-            constraints.append(cp.trace(A @ X) == 1)
-        elif (i % 9 != 0) and (i % 9 != 4) and (i % 9 != 8):
-            constraints.append(cp.trace(A @ X) == 0)
+## TODO: REMOVE. ZERO ANGULAR VELOCITY TEST
+#for i in range(9*N-9):
+#    for j in range(dim_x):
+#        A = np.zeros((dim_x, dim_x))
+#        if i == j:
+#            A[i,j] = 1
+#            A[j,i] = 1
+#        else:
+#            A[i,j] = 0.5
+#            A[j,i] = 0.5
+#        if (i % 9 == 0 or i % 9 == 4 or i % 9 == 8) and (j % 9 == 0 or j % 9 == 4 or j % 9 == 8) and j < 9*N-9:
+#            constraints.append(cp.trace(A @ X) == 1)
+#        elif (i % 9 != 0) and (i % 9 != 4) and (i % 9 != 8):
+#            constraints.append(cp.trace(A @ X) == 0)
 
 ## TODO: REMOVE. ZERO ROTATION TEST
 #for i in range(9*N-9, 18*N-9):
@@ -240,7 +277,7 @@ print(prob.status)
 print()
 print("A solution X is")
 print("Angular velocity part:")
-print(X.value[:9*N-9, 0:9*N-9])
+print(X.value[:9*N-9, :9*N-9])
 print()
 print("Rotation part:")
 print(X.value[9*N-9:18*N-9, 9*N-9:18*N-9])
