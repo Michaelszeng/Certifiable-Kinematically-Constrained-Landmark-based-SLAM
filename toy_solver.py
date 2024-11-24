@@ -4,19 +4,22 @@ import numpy as np
 # Outer label: landmark number
 # Inner label: timestep
 measurements = {
-    0: { # landmark 0
-        0: np.array([[3,3,0]]).T, # timestep 0
-        3: np.array([[0,3,0]]).T, # timestep 3
+    # Landmark number
+    0: {
+        # Timestep number
+        0: np.array([[10,3,1]]).T,
+        1: np.array([[6,3,1]]).T,
+        2: np.array([[2,3,1]]).T,
     },
 }
 
-N = 4
+N = 3
 K = len(measurements)
 dim_x = 21 * N + 3 * K - 9
 dim_v = 3 * N - 3
 
 # [v Omega R p t]
-X = cp.Variable((dim_x, dim_x))
+X = cp.Variable((dim_x, dim_x), symmetric=True)
 v = cp.Variable(dim_v)
 
 cov_v = 1
@@ -105,30 +108,54 @@ print()
 
 constraints = [X >> 0]
 
-# Start point has 0 rotation
+# Start point has 0 rotation (identity matrix)
 for i in range(9*N-9, 9*N):
     for j in range(dim_x):
         A = np.zeros((dim_x, dim_x))
-        A[i,j] = 0
-        A[j,i] = 0
-        constraints.append(cp.trace(A @ X) == 0)
+        A[i,j] = 1
+        A[j,i] = 1
+        if (i == j == 9*N-9) or (i == j == 9*N-5) or (i == j == 9*N-1):
+            constraints.append(cp.trace(A @ X) == 1)
+        if (i != 9*N-9) and (i != 9*N-5) and (i != 9*N-1):
+            constraints.append(cp.trace(A @ X) == 0)
 
 # Start point has 0 translation
 for i in range(18*N-9+3*K, 18*N-6+3*K):
     for j in range(dim_x):
         A = np.zeros((dim_x, dim_x))
-        A[i,j] = 0
-        A[j,i] = 0
+        A[i,j] = 1
+        A[j,i] = 1
         constraints.append(cp.trace(A @ X) == 0)
 
 # TODO: REMOVE. ZERO ANGULAR VELOCITY TEST
 for i in range(9*N-9):
     for j in range(dim_x):
         A = np.zeros((dim_x, dim_x))
-        A[i,j] = 0
-        A[j,i] = 0
-        constraints.append(cp.trace(A @ X) == 0)
+        if i == j:
+            A[i,j] = 1
+            A[j,i] = 1
+        else:
+            A[i,j] = 0.5
+            A[j,i] = 0.5
+        if (i % 9 == 0 or i % 9 == 4 or i % 9 == 8) and (j % 9 == 0 or j % 9 == 4 or j % 9 == 8) and j < 9*N-9:
+            constraints.append(cp.trace(A @ X) == 1)
+        elif (i % 9 != 0) and (i % 9 != 4) and (i % 9 != 8):
+            constraints.append(cp.trace(A @ X) == 0)
 
+# TODO: REMOVE. ZERO ANGULAR VELOCITY TEST
+for i in range(9*N-9, 18*N-9):
+    for j in range(dim_x):
+        A = np.zeros((dim_x, dim_x))
+        if i == j:
+            A[i,j] = 1
+            A[j,i] = 1
+        else:
+            A[i,j] = 0.5
+            A[j,i] = 0.5
+        if (i % 9 == 0 or i % 9 == 4 or i % 9 == 8) and (j % 9 == 0 or j % 9 == 4 or j % 9 == 8) and j < 18*N-9:
+            constraints.append(cp.trace(A @ X) == 1)
+        elif (i % 9 != 0) and (i % 9 != 4) and (i % 9 != 8):
+            constraints.append(cp.trace(A @ X) == 0)
 # R^TR=I constraints
 for t in range(N):
     for i in range(3):
@@ -168,7 +195,7 @@ for t in range(N - 1):
     A[18*N-9+3*K+3*t+5, 9*N-9+9*t+6] = -0.5
 
     d = np.zeros((dim_v, 1))
-    d[3*t,0] = -1 # -v_i[0]
+    d[3*t,0] = 1 # v_i[0]
     constraints.append(cp.trace(A @ X) + d.T @ v == 0)
 
     A = np.zeros((dim_x, dim_x))
@@ -188,7 +215,7 @@ for t in range(N - 1):
     A[18*N-9+3*K+3*t+5, 9*N-9+9*t+7] = -0.5
 
     d = np.zeros((dim_v, 1))
-    d[3*t+1,0] = -1 # -v_i[1]
+    d[3*t+1,0] = 1 # v_i[1]
     constraints.append(cp.trace(A @ X) + d.T @ v == 0)
 
     A = np.zeros((dim_x, dim_x))
@@ -208,21 +235,29 @@ for t in range(N - 1):
     A[18*N-9+3*K+3*t+5, 9*N-9+9*t+8] = -0.5
 
     d = np.zeros((dim_v, 1))
-    d[3*t+2,0] = -1 # -v_i[2]
+    d[3*t+2,0] = 1 # v_i[2]
     constraints.append(cp.trace(A @ X) + d.T @ v == 0)
 
 # Rotation odometry constraints
 
 # Problem definition
 prob = cp.Problem(cp.Minimize(cp.trace(Q @ X) + cp.quad_form(v, P)), constraints)
-prob.solve()
+prob.solve(solver=cp.MOSEK)
 
 # Print result
+np.set_printoptions(suppress=True,
+   formatter={'float_kind':'{:0.5f}'.format})
 print("\nThe optimal value is", prob.value)
 print(prob.status)
 print()
+print("Rank of X is", np.linalg.matrix_rank(X.value))
+print()
 print("A solution X is")
-print(X.value)
+print("Angular velocity part:")
+print(X.value[:9*N-9, 0:9*N-9])
+print()
+print("Rotation part:")
+print(X.value[9*N-9:18*N-9, 9*N-9:18*N-9])
 print()
 print("A solution v is")
 print(v.value)
@@ -233,3 +268,4 @@ U, S, Vt = np.linalg.svd(X.value)
 x = U[:, 0] * np.sqrt(S[0])
 print("Reconstructed x is")
 print(x)
+
