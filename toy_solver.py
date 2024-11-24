@@ -15,7 +15,7 @@ K = len(measurements)
 dim_x = 24 * N + 3 * K - 12
 
 # [v Omega R p t]
-x = cp.Variable(dim_x)
+X = cp.Variable((dim_x, dim_x))
 
 cov_v = 1
 cov_omega = 1
@@ -99,3 +99,40 @@ print()
 print("Q - translation block:")
 print(Q[21*N-12+3*K:, 21*N-12+3*K:])
 print()
+
+constraints = []
+
+# x is homogeneous
+
+# R^TR=I constraints
+for t in range(N):
+    for i in range(3):
+        for j in range(3):
+            A = np.zeros((dim_x, dim_x))
+            for k in range(3):
+                A[12*N-12+9*t+j+3*k, 12*N-12+9*t+3*i+k] = 1 if j+3*k == 3*i+k else 0.5
+                A[12*N-12+9*t+3*i+k, 12*N-12+9*t+j+3*k] = 1 if j+3*k == 3*i+k else 0.5
+            constraints.append(cp.trace(A @ X) == (i == j))
+
+# Omega^TOmega=I constraints
+for t in range(N):
+    for i in range(3):
+        for j in range(3):
+            A = np.zeros((dim_x, dim_x))
+            for k in range(3):
+                A[3*N-3+9*t+j+3*k, 3*N-3+9*t+3*i+k] = 1 if j+3*k == 3*i+k else 0.5
+                A[3*N-3+9*t+3*i+k, 3*N-3+9*t+j+3*k] = 1 if j+3*k == 3*i+k else 0.5
+            constraints.append(cp.trace(A @ X) == (i == j))
+
+# Translation odometry constraints
+for t in range(N - 1):
+
+
+# Problem definition
+prob = cp.Problem(cp.Minimize(cp.trace(Q @ X)), constraints)
+prob.solve()
+
+# Print result
+print("\nThe optimal value is", prob.value)
+print("A solution X is")
+print(X.value)
