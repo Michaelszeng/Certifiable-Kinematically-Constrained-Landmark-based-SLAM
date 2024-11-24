@@ -12,97 +12,122 @@ measurements = {
 
 N = 4
 K = len(measurements)
-dim_x = 24 * N + 3 * K - 12
+dim_x = 21 * N + 3 * K - 9
+dim_v = 3 * N - 3
 
 # [v Omega R p t]
 X = cp.Variable((dim_x, dim_x))
+v = cp.Variable(dim_v)
 
 cov_v = 1
 cov_omega = 1
 cov_meas = 1
 
 Q = np.zeros((dim_x, dim_x))
+P = np.zeros((dim_v, dim_v))
 
 # Add constant linear velocity objective
-Q[0:3*N-3, 0:3*N-3] += cov_v * np.identity(3*N-3)
-Q[3:3*N-3, 0:3*N-6] -= cov_v * np.identity(3*N-6)
-Q[0:3*N-6, 3:3*N-3] -= cov_v * np.identity(3*N-6)
-Q[3:3*N-6, 3:3*N-6] += cov_v * np.identity(3*N-9)
+P[0:3*N-3, 0:3*N-3] += cov_v * np.identity(3*N-3)
+P[3:3*N-3, 0:3*N-6] -= cov_v * np.identity(3*N-6)
+P[0:3*N-6, 3:3*N-3] -= cov_v * np.identity(3*N-6)
+P[3:3*N-6, 3:3*N-6] += cov_v * np.identity(3*N-9)
 
-print("Q - linear velocity block:")
-print(Q[:3*N-3, :3*N-3])
+print("P - linear velocity block:")
+print(P)
 print()
 
 # Add constant angular velocity objective
-Q[3*N-3:12*N-12, 3*N-3:12*N-12] += cov_omega * np.identity(9*N-9)
-Q[3*N+6:12*N-12, 3*N-3:12*N-21] -= cov_omega * np.identity(9*N-18)
-Q[3*N-3:12*N-21, 3*N+6:12*N-12] -= cov_omega * np.identity(9*N-18)
-Q[3*N+6:12*N-21, 3*N+6:12*N-21] += cov_omega * np.identity(9*N-27)
+Q[0:9*N-9, 0:9*N-9] += cov_omega * np.identity(9*N-9)
+Q[9:9*N-9, 0:9*N-18] -= cov_omega * np.identity(9*N-18)
+Q[0:9*N-18, 9:9*N-9] -= cov_omega * np.identity(9*N-18)
+Q[9:9*N-18, 9:9*N-18] += cov_omega * np.identity(9*N-27)
 
 print("Q - angular velocity block:")
-print(Q[3*N-3:12*N-12, 3*N-3:12*N-12])
+print(Q[:9*N-9, :9*N-9])
 print()
 
 for k, lm_meas in measurements.items():
     for t, meas in lm_meas.items():
         # Add rotation objective
-        Q[12*N-12+9*t:12*N-12+9*t+3, 12*N-12+9*t:12*N-12+9*t+3] += cov_meas * (meas @ meas.T)
-        Q[12*N-12+9*t+3:12*N-12+9*t+6, 12*N-12+9*t+3:12*N-12+9*t+6] += cov_meas * (meas @ meas.T)
-        Q[12*N-12+9*t+6:12*N-12+9*t+9, 12*N-12+9*t+6:12*N-12+9*t+9] += cov_meas * (meas @ meas.T)
+        Q[9*N-9+9*t:9*N-9+9*t+3, 9*N-9+9*t:9*N-9+9*t+3] += cov_meas * (meas @ meas.T)
+        Q[9*N-9+9*t+3:9*N-9+9*t+6, 9*N-9+9*t+3:9*N-9+9*t+6] += cov_meas * (meas @ meas.T)
+        Q[9*N-9+9*t+6:9*N-9+9*t+9, 9*N-9+9*t+6:9*N-9+9*t+9] += cov_meas * (meas @ meas.T)
 
         # Add rotation to landmark objective
-        Q[21*N-12+3*k, 12*N-12+9*t:12*N-12+9*t+3] -= cov_meas * meas.flatten()
-        Q[21*N-12+3*k+1, 12*N-12+9*t+3:12*N-12+9*t+6] -= cov_meas * meas.flatten()
-        Q[21*N-12+3*k+2, 12*N-12+9*t+6:12*N-12+9*t+9] -= cov_meas * meas.flatten()
-        Q[12*N-12+9*t:12*N-12+9*t+3, 21*N-12+3*k] -= cov_meas * meas.flatten()
-        Q[12*N-12+9*t+3:12*N-12+9*t+6, 21*N-12+3*k+1] -= cov_meas * meas.flatten()
-        Q[12*N-12+9*t+6:12*N-12+9*t+9, 21*N-12+3*k+2] -= cov_meas * meas.flatten()
+        Q[18*N-9+3*k, 9*N-9+9*t:9*N-9+9*t+3] -= cov_meas * meas.flatten()
+        Q[18*N-9+3*k+1, 9*N-9+9*t+3:9*N-9+9*t+6] -= cov_meas * meas.flatten()
+        Q[18*N-9+3*k+2, 9*N-9+9*t+6:9*N-9+9*t+9] -= cov_meas * meas.flatten()
+        Q[9*N-9+9*t:9*N-9+9*t+3, 18*N-9+3*k] -= cov_meas * meas.flatten()
+        Q[9*N-9+9*t+3:9*N-9+9*t+6, 18*N-9+3*k+1] -= cov_meas * meas.flatten()
+        Q[9*N-9+9*t+6:9*N-9+9*t+9, 18*N-9+3*k+2] -= cov_meas * meas.flatten()
 
         # Add rotation to translation objective
-        Q[21*N-12+3*K+3*t, 12*N-12+9*t:12*N-12+9*t+3] += cov_meas * meas.flatten()
-        Q[21*N-12+3*K+3*t+1, 12*N-12+9*t+3:12*N-12+9*t+6] += cov_meas * meas.flatten()
-        Q[21*N-12+3*K+3*t+2, 12*N-12+9*t+6:12*N-12+9*t+9] += cov_meas * meas.flatten()
-        Q[12*N-12+9*t:12*N-12+9*t+3, 21*N-12+3*K+3*t] += cov_meas * meas.flatten()
-        Q[12*N-12+9*t+3:12*N-12+9*t+6, 21*N-12+3*K+3*t+1] += cov_meas * meas.flatten()
-        Q[12*N-12+9*t+6:12*N-12+9*t+9, 21*N-12+3*K+3*t+2] += cov_meas * meas.flatten()
+        Q[18*N-9+3*K+3*t, 9*N-9+9*t:9*N-9+9*t+3] += cov_meas * meas.flatten()
+        Q[18*N-9+3*K+3*t+1, 9*N-9+9*t+3:9*N-9+9*t+6] += cov_meas * meas.flatten()
+        Q[18*N-9+3*K+3*t+2, 9*N-9+9*t+6:9*N-9+9*t+9] += cov_meas * meas.flatten()
+        Q[9*N-9+9*t:9*N-9+9*t+3, 18*N-9+3*K+3*t] += cov_meas * meas.flatten()
+        Q[9*N-9+9*t+3:9*N-9+9*t+6, 18*N-9+3*K+3*t+1] += cov_meas * meas.flatten()
+        Q[9*N-9+9*t+6:9*N-9+9*t+9, 18*N-9+3*K+3*t+2] += cov_meas * meas.flatten()
 
         # Add landmark to translation objective
-        Q[21*N-12+3*k:21*N-12+3*k+3, 21*N-12+3*K+3*t:21*N-12+3*K+3*t+3] -= cov_meas * np.identity(3)
-        Q[21*N-12+3*K+3*t:21*N-12+3*K+3*t+3, 21*N-12+3*k:21*N-12+3*k+3] -= cov_meas * np.identity(3)
+        Q[18*N-9+3*k:18*N-9+3*k+3, 18*N-9+3*K+3*t:18*N-9+3*K+3*t+3] -= cov_meas * np.identity(3)
+        Q[18*N-9+3*K+3*t:18*N-9+3*K+3*t+3, 18*N-9+3*k:18*N-9+3*k+3] -= cov_meas * np.identity(3)
 
         # Add landmark objective
-        Q[21*N-12+3*k:21*N-12+3*k+3, 21*N-12+3*k:21*N-12+3*k+3] += cov_meas * np.identity(3)
+        Q[18*N-9+3*k:18*N-9+3*k+3, 18*N-9+3*k:18*N-9+3*k+3] += cov_meas * np.identity(3)
 
         # Add translation objective
-        Q[21*N-12+3*K+3*t:21*N-12+3*K+3*t+3, 21*N-12+3*K+3*t:21*N-12+3*K+3*t+3] += cov_meas * np.identity(3)
+        Q[18*N-9+3*K+3*t:18*N-9+3*K+3*t+3, 18*N-9+3*K+3*t:18*N-9+3*K+3*t+3] += cov_meas * np.identity(3)
 
 print("Q - rotation block:")
-print(Q[12*N-12:21*N-12, 12*N-12:21*N-12])
+print(Q[9*N-9:18*N-9, 9*N-9:18*N-9])
 print()
 
 print("Q - rotation to landmark block:")
-print(Q[12*N-12:21*N-12, 21*N-12:21*N-12+3*K])
+print(Q[9*N-9:18*N-9, 18*N-9:18*N-9+3*K])
 print()
 
 print("Q - rotation to translation block:")
-print(Q[12*N-12:21*N-12, 21*N-12+3*K:24*N-12+3*K])
+print(Q[9*N-9:18*N-9, 18*N-9+3*K:])
 print()
 
 print("Q - landmark to translation block:")
-print(Q[21*N-12:21*N-12+3*K, 21*N-12+3*K:])
+print(Q[18*N-9:18*N-9+3*K, 18*N-9+3*K:])
 print()
 
 print("Q - landmark block:")
-print(Q[21*N-12:21*N-12+3*K, 21*N-12:21*N-12+3*K])
+print(Q[18*N-9:18*N-9+3*K, 18*N-9:18*N-9+3*K])
 print()
 
 print("Q - translation block:")
-print(Q[21*N-12+3*K:, 21*N-12+3*K:])
+print(Q[18*N-9+3*K:, 18*N-9+3*K:])
 print()
 
-constraints = []
+constraints = [X >> 0]
 
-# x is homogeneous
+# Start point has 0 rotation
+for i in range(9*N-9, 9*N):
+    for j in range(dim_x):
+        A = np.zeros((dim_x, dim_x))
+        A[i,j] = 0
+        A[j,i] = 0
+        constraints.append(cp.trace(A @ X) == 0)
+
+# Start point has 0 translation
+for i in range(18*N-9+3*K, 18*N-6+3*K):
+    for j in range(dim_x):
+        A = np.zeros((dim_x, dim_x))
+        A[i,j] = 0
+        A[j,i] = 0
+        constraints.append(cp.trace(A @ X) == 0)
+
+# TODO: REMOVE. ZERO ANGULAR VELOCITY TEST
+for i in range(9*N-9):
+    for j in range(dim_x):
+        A = np.zeros((dim_x, dim_x))
+        A[i,j] = 0
+        A[j,i] = 0
+        constraints.append(cp.trace(A @ X) == 0)
 
 # R^TR=I constraints
 for t in range(N):
@@ -110,8 +135,8 @@ for t in range(N):
         for j in range(3):
             A = np.zeros((dim_x, dim_x))
             for k in range(3):
-                A[12*N-12+9*t+j+3*k, 12*N-12+9*t+3*i+k] = 1 if j+3*k == 3*i+k else 0.5
-                A[12*N-12+9*t+3*i+k, 12*N-12+9*t+j+3*k] = 1 if j+3*k == 3*i+k else 0.5
+                A[9*N-9+9*t+j+3*k, 9*N-9+9*t+3*i+k] = 1 if j+3*k == 3*i+k else 0.5
+                A[9*N-9+9*t+3*i+k, 9*N-9+9*t+j+3*k] = 1 if j+3*k == 3*i+k else 0.5
             constraints.append(cp.trace(A @ X) == (i == j))
 
 # Omega^TOmega=I constraints
@@ -120,19 +145,91 @@ for t in range(N):
         for j in range(3):
             A = np.zeros((dim_x, dim_x))
             for k in range(3):
-                A[3*N-3+9*t+j+3*k, 3*N-3+9*t+3*i+k] = 1 if j+3*k == 3*i+k else 0.5
-                A[3*N-3+9*t+3*i+k, 3*N-3+9*t+j+3*k] = 1 if j+3*k == 3*i+k else 0.5
+                A[9*t+j+3*k, 9*t+3*i+k] = 1 if j+3*k == 3*i+k else 0.5
+                A[9*t+3*i+k, 9*t+j+3*k] = 1 if j+3*k == 3*i+k else 0.5
             constraints.append(cp.trace(A @ X) == (i == j))
 
 # Translation odometry constraints
 for t in range(N - 1):
+    A = np.zeros((dim_x, dim_x))
+    A[9*N-9+9*t+0, 18*N-9+3*K+3*t+0] = 0.5  # R_i[0,0]*t_i[0]
+    A[9*N-9+9*t+3, 18*N-9+3*K+3*t+1] = 0.5  # R_i[1,0]*t_i[1]
+    A[9*N-9+9*t+6, 18*N-9+3*K+3*t+2] = 0.5  # R_i[2,0]*t_i[2]
+    A[9*N-9+9*t+0, 18*N-9+3*K+3*t+3] = -0.5 # -R_i[0,0]*t_{i+1}[0]
+    A[9*N-9+9*t+3, 18*N-9+3*K+3*t+4] = -0.5 # -R_i[1,0]*t_{i+1}[1]
+    A[9*N-9+9*t+6, 18*N-9+3*K+3*t+5] = -0.5 # -R_i[2,0]*t_{i+1}[2]
 
+    # Transposes
+    A[18*N-9+3*K+3*t+0, 9*N-9+9*t+0] = 0.5
+    A[18*N-9+3*K+3*t+1, 9*N-9+9*t+3] = 0.5
+    A[18*N-9+3*K+3*t+2, 9*N-9+9*t+6] = 0.5
+    A[18*N-9+3*K+3*t+3, 9*N-9+9*t+0] = -0.5
+    A[18*N-9+3*K+3*t+4, 9*N-9+9*t+3] = -0.5
+    A[18*N-9+3*K+3*t+5, 9*N-9+9*t+6] = -0.5
+
+    d = np.zeros((dim_v, 1))
+    d[3*t,0] = -1 # -v_i[0]
+    constraints.append(cp.trace(A @ X) + d.T @ v == 0)
+
+    A = np.zeros((dim_x, dim_x))
+    A[9*N-9+9*t+1, 18*N-9+3*K+3*t+0] = 0.5  # R_i[0,1]*t_i[0]
+    A[9*N-9+9*t+4, 18*N-9+3*K+3*t+1] = 0.5  # R_i[1,1]*t_i[1]
+    A[9*N-9+9*t+7, 18*N-9+3*K+3*t+2] = 0.5  # R_i[2,1]*t_i[2]
+    A[9*N-9+9*t+1, 18*N-9+3*K+3*t+3] = -0.5 # -R_i[0,1]*t_{i+1}[0]
+    A[9*N-9+9*t+4, 18*N-9+3*K+3*t+4] = -0.5 # -R_i[1,1]*t_{i+1}[1]
+    A[9*N-9+9*t+7, 18*N-9+3*K+3*t+5] = -0.5 # -R_i[2,1]*t_{i+1}[2]
+
+    # Transposes
+    A[18*N-9+3*K+3*t+0, 9*N-9+9*t+1] = 0.5
+    A[18*N-9+3*K+3*t+1, 9*N-9+9*t+4] = 0.5
+    A[18*N-9+3*K+3*t+2, 9*N-9+9*t+7] = 0.5
+    A[18*N-9+3*K+3*t+3, 9*N-9+9*t+1] = -0.5
+    A[18*N-9+3*K+3*t+4, 9*N-9+9*t+4] = -0.5
+    A[18*N-9+3*K+3*t+5, 9*N-9+9*t+7] = -0.5
+
+    d = np.zeros((dim_v, 1))
+    d[3*t+1,0] = -1 # -v_i[1]
+    constraints.append(cp.trace(A @ X) + d.T @ v == 0)
+
+    A = np.zeros((dim_x, dim_x))
+    A[9*N-9+9*t+2, 18*N-9+3*K+3*t+0] = 0.5  # R_i[0,2]*t_i[0]
+    A[9*N-9+9*t+5, 18*N-9+3*K+3*t+1] = 0.5  # R_i[1,2]*t_i[1]
+    A[9*N-9+9*t+8, 18*N-9+3*K+3*t+2] = 0.5  # R_i[2,2]*t_i[2]
+    A[9*N-9+9*t+2, 18*N-9+3*K+3*t+3] = -0.5 # -R_i[0,2]*t_{i+1}[0]
+    A[9*N-9+9*t+5, 18*N-9+3*K+3*t+4] = -0.5 # -R_i[1,2]*t_{i+1}[1]
+    A[9*N-9+9*t+8, 18*N-9+3*K+3*t+5] = -0.5 # -R_i[2,2]*t_{i+1}[2]
+
+    # Transposes
+    A[18*N-9+3*K+3*t+0, 9*N-9+9*t+2] = 0.5
+    A[18*N-9+3*K+3*t+1, 9*N-9+9*t+5] = 0.5
+    A[18*N-9+3*K+3*t+2, 9*N-9+9*t+8] = 0.5
+    A[18*N-9+3*K+3*t+3, 9*N-9+9*t+2] = -0.5
+    A[18*N-9+3*K+3*t+4, 9*N-9+9*t+5] = -0.5
+    A[18*N-9+3*K+3*t+5, 9*N-9+9*t+8] = -0.5
+
+    d = np.zeros((dim_v, 1))
+    d[3*t+2,0] = -1 # -v_i[2]
+    constraints.append(cp.trace(A @ X) + d.T @ v == 0)
+
+# Rotation odometry constraints
 
 # Problem definition
-prob = cp.Problem(cp.Minimize(cp.trace(Q @ X)), constraints)
+prob = cp.Problem(cp.Minimize(cp.trace(Q @ X) + cp.quad_form(v, P)), constraints)
 prob.solve()
 
 # Print result
 print("\nThe optimal value is", prob.value)
+print(prob.status)
+print()
 print("A solution X is")
 print(X.value)
+print()
+print("A solution v is")
+print(v.value)
+print()
+
+# Reconstruct x
+U, S, Vt = np.linalg.svd(X.value)
+x = U[:, 0] * np.sqrt(S[0])
+print("Reconstructed x is")
+print(x)
