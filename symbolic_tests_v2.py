@@ -11,7 +11,7 @@ import os
 current_folder = os.path.dirname(os.path.abspath(__file__))
 test_data_path = os.path.join(current_folder, "test_data")
 sys.path.append(test_data_path)
-from test1 import *
+from test2 import *
 
 
 prog = MathematicalProgram()
@@ -28,9 +28,11 @@ p = [prog.NewContinuousVariables(d, f"p_{k}") for k in range(K)]                
 
 # 1. Constant Twist Constraints
 for i in range(N - 1):
-    # Position update: t_{i+1} = t_i + v_i
+    # Position update: t_{i+1} = t_i + R_i @ v_i
     for dim in range(d):
-        prog.AddLinearEqualityConstraint(t[i + 1][dim] == t[i][dim] + v[i][dim])
+        # Compute the dim'th element of the matrix vector product R_i @ v_i
+        rotation_times_velocity = sum(R[i][dim, k] * v[i][k] for k in range(d))
+        prog.AddConstraint(t[i + 1][dim] == t[i][dim] + rotation_times_velocity)
     
     # Rotation update: R_{i+1} = R_i @ Omega_i
     for row in range(d):
@@ -63,7 +65,7 @@ for k in range(K):
         # R[j] @ y_bar[k][j]
         Rj_y = [sum(R[j][row, m] * y_bar_kj[m] for m in range(d)) for row in range(d)]
         
-        # (t[j] - p[k])
+        # (p[k] - t[j])
         t_minus_p = [p[k][dim] - t[j][dim] for dim in range(d)]
         
         # Residual: R[j] @ y_bar[k][j] - (t[j] - p[k])
@@ -102,6 +104,7 @@ for i in range(N - 1):
             quad_form_omega += Omega_diff[r] * Sigma_omega[r, c] * Omega_diff[c]
     
     prog.AddCost(quad_form_omega)
+
 
 # Set initial guesses and Solve
 for i in range(N):
@@ -160,7 +163,8 @@ def visualize_results(N, K, t, v, R, p):
     for i in range(N):
         position = np.array([t[i][0], t[i][1]])  # Ignore z-axis
         rotation_matrix = R[i][:2, :2]  # Use the top-left 2x2 of the 3x3 matrix
-        velocity = np.array([v[i][0], v[i][1]])  # Ignore z-axis
+        v_i_rotated = R[i] @ v[i]
+        velocity = np.array([v_i_rotated[0], v_i_rotated[1]])  # Ignore z-axis
         
         # Draw robot pose
         draw_triangle(ax, position, rotation_matrix, size=0.3, color='blue')

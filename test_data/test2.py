@@ -8,12 +8,12 @@ d = 3   # dimension of space (3D)
 # Measurement data: maps landmark to {timestamp: measurement} dicts
 y_bar = {0: {0: (-1,3,0), 1: (-1.2,1.6,0)}, 
          1: {2: (1.45,3.0,0), 3: (1.3,2.0,0)},
-         2: {3: (-1.15,3.85,0), 4: (-1.4,2.6,0)},
-         3: {3: (-0.35,4.3,0), 4: (-0.9,3.0,0), 5: (-1.2,2.0,0)},
-         4: {6: (0.1,5.3,0), 7: (-0.4,4.2,0), 8: (3.0,1.0,0)}}
+         2: {3: (-1.4,3.6,0), 4: (-1.55,2.45,0)},
+         3: {3: (-0.3,4.4,0), 4: (-0.8,3.1,0), 5: (-1.1,2.0,0)},
+         4: {6: (0.1,5.3,0), 7: (-0.4,4.2,0), 8: (-0.9,3.1,0), 9: (-1.0,1.8,0)}}
 
 # Covariances
-Sigma_p = np.eye(d)  # Covariance matrix for position
+Sigma_p = 4*np.eye(d)  # Covariance matrix for position
 Sigma_v = np.eye(d)  # Covariance matrix for velocity
 Sigma_omega = np.eye(d**2)  # Covariance matrix for angular velocity
 
