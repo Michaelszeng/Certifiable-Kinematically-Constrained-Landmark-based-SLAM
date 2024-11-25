@@ -64,7 +64,7 @@ for k in range(K):
         Rj_y = [sum(R[j][row, m] * y_bar_kj[m] for m in range(d)) for row in range(d)]
         
         # (t[j] - p[k])
-        t_minus_p = [t[j][dim] - p[k][dim] for dim in range(d)]
+        t_minus_p = [p[k][dim] - t[j][dim] for dim in range(d)]
         
         # Residual: R[j] @ y_bar[k][j] - (t[j] - p[k])
         residual = [Rj_y[row] - t_minus_p[row] for row in range(d)]
