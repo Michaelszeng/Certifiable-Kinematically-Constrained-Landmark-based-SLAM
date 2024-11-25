@@ -11,17 +11,23 @@ import os
 current_folder = os.path.dirname(os.path.abspath(__file__))
 test_data_path = os.path.join(current_folder, "test_data")
 sys.path.append(test_data_path)
-from test2 import *
+from test1 import *
 
+np.set_printoptions(edgeitems=30, linewidth=200, precision=4, suppress=True)
+
+# Full State:
+#      d*N d*N d*K, d*d*N, d*d*N
+# x = [ t,  v,  p,    R,   Omega]
 
 prog = MathematicalProgram()
 
 # Variable Definitions
+# NOTE: DEFINE THESE IN THE ORDER THEY APPEAR IN OUR FULL STATE REPRESENTATION
 t = [prog.NewContinuousVariables(d, f"t_{i}") for i in range(N)]                # Positions t_i
-R = [prog.NewContinuousVariables(d, d, f"R_{i}") for i in range(N)]             # Rotations R_i
 v = [prog.NewContinuousVariables(d, f"v_{i}") for i in range(N)]                # Velocities v_i
-Omega = [prog.NewContinuousVariables(d, d, f"Omega_{i}") for i in range(N)]     # Angular velocities Ω_i
 p = [prog.NewContinuousVariables(d, f"p_{k}") for k in range(K)]                # Landmark positions p_ks
+R = [prog.NewContinuousVariables(d, d, f"R_{i}") for i in range(N)]             # Rotations R_i
+Omega = [prog.NewContinuousVariables(d, d, f"Omega_{i}") for i in range(N)]     # Angular velocities Ω_i
 
 
 # Constraint Definitions
@@ -58,6 +64,8 @@ for i in range(N):
 
 
 # Objective Function
+Q_cost = np.zeros((d*N + d*N + d*K + d*d*N + d*d*N, d*N + d*N + d*K + d*d*N + d*d*N))
+print(f"Q_cost: {np.shape(Q_cost)}")
 
 # 1. Landmark Residuals
 for k in range(K):
@@ -77,8 +85,20 @@ for k in range(K):
             for c in range(d):
                 quad_form += residual[r] * Sigma_p[r, c] * residual[c]
         
-        prog.AddCost(quad_form)
-
+        cost_binding = prog.AddCost(quad_form)
+        cost = cost_binding.evaluator()
+        # print(cost.Q())
+        # print(np.kron(np.array(y_bar_kj).reshape(3,1).T, Sigma_p))  # t,r = -p,r
+        # print(np.kron(np.array(y_bar_kj).reshape(3,1) @ np.array(y_bar_kj).reshape(3,1).T, Sigma_p))  # r,r
+        Q_cost[d*j : d*(j+1), d*j : d*(j+1)] += cost.Q()[0:3,0:3]  # t,t
+        Q_cost[d*j : d*(j+1), 2*d*N + d*k : 2*d*N + d*(k+1)] += cost.Q()[0:3,3:6]  # t,p
+        Q_cost[2*d*N + d*k : 2*d*N + d*(k+1), d*j : d*(j+1)] += cost.Q()[3:6,0:3]  # p,t
+        Q_cost[2*d*N + d*k : 2*d*N + d*(k+1), 2*d*N + d*k : 2*d*N + d*(k+1)] += cost.Q()[3:6,3:6]  # p,p
+        Q_cost[d*j : d*(j+1), 2*d*N + d*K + d*d*j : 2*d*N + d*K + d*d*(j+1)] += cost.Q()[0:3,6:15]  # t,r
+        Q_cost[2*d*N + d*K + d*d*j : 2*d*N + d*K + d*d*(j+1), d*j : d*(j+1)] += cost.Q()[6:15,0:3]  # r,t
+        Q_cost[2*d*N + d*K + d*d*j : 2*d*N + d*K + d*d*(j+1), 2*d*N + d*K + d*d*j : 2*d*N + d*K + d*d*(j+1)] += cost.Q()[6:15,6:15]  #r,r
+        
+        
 # 2. Velocity Differences
 for i in range(N - 1):
     # v_{i+1} - v_i
@@ -90,7 +110,11 @@ for i in range(N - 1):
         for c in range(d):
             quad_form_v += v_diff[r] * Sigma_v[r, c] * v_diff[c]
     
-    prog.AddCost(quad_form_v)
+    cost_binding = prog.AddCost(quad_form_v)
+
+    cost = cost_binding.evaluator()
+    # print(cost.Q())
+    Q_cost[d*N + d*i : d*N + d*(i+2), d*N + d*i : d*N + d*(i+2)] += cost.Q()
 
 # 3. Angular Velocity Differences
 for i in range(N - 1):
@@ -103,8 +127,13 @@ for i in range(N - 1):
         for c in range(d**2):
             quad_form_omega += Omega_diff[r] * Sigma_omega[r, c] * Omega_diff[c]
     
-    prog.AddCost(quad_form_omega)
+    cost_binding = prog.AddCost(quad_form_omega)
+    
+    cost = cost_binding.evaluator()
+    # print(cost.Q())
+    Q_cost[2*d*N + d*K + d*d*N + d*d*i : 2*d*N + d*K + d*d*N + d*d*(i+2), 2*d*N + d*K + d*d*N + d*d*i : 2*d*N + d*K + d*d*N + d*d*(i+2)] += cost.Q()
 
+print(Q_cost)
 
 # Set initial guesses and Solve
 for i in range(N):
@@ -188,22 +217,19 @@ def visualize_results(N, K, t, v, R, p):
     plt.grid()
     plt.show()
 
-visualize_results(N, K, t_sol, v_sol, R_sol, p_sol)
+# visualize_results(N, K, t_sol, v_sol, R_sol, p_sol)
     
     
-# # Retrieve Q and b matrices and formulate Standard Form QCQP
-# for quad_cost in prog.quadratic_costs():
-#     quad_cost = quad_cost.evaluator()
-#     print(np.shape(quad_cost.Q()))
+# Retrieve Q and b matrices and formulate Standard Form QCQP
+for quad_cost in prog.quadratic_costs():
+    quad_cost = quad_cost.evaluator()
+    # print(np.shape(quad_cost.Q()))
+    # print(np.shape(quad_cost.b()))
+    # print(np.shape(quad_cost.c()))
     
-# print("=======================================================================")
+print("=======================================================================")
     
-# for quad_constraint in prog.quadratic_constraints():
-#     quad_constraint = quad_constraint.evaluator()
-#     print(np.shape(quad_constraint.Q()))
-    
-# for lin_constraint in prog.GetLinearConstraints():
-#     lin_constraint = lin_constraint.evaluator()
-#     print(np.shape(lin_constraint.GetDenseA()))
-#     print(np.shape(lin_constraint.lower_bound()))
-#     print(np.shape(lin_constraint.upper_bound()))
+for quad_constraint in prog.quadratic_constraints():
+    quad_constraint = quad_constraint.evaluator()
+    # print(np.shape(quad_constraint.Q()))
+    # print(np.shape(quad_constraint.b()))

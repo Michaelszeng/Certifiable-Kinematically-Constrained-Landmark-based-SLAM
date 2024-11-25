@@ -6,13 +6,14 @@ K = 2   # Num landmarks
 d = 3   # dimension of space (3D)
 
 # Measurement data: maps landmark to {timestamp: measurement} dicts
-y_bar = {0: {0: (1,2,0), 1: (1,1,0)}, 
-         1: {2: (-1,2,0), 3: (-1,1,0)}}
+# NOTE: IT'S VERY IMPORTANT THAT NONE OF THESE VALUES ARE PRECISELY ZERO, OR DRAKE WILL AUTO-REMOVE THE CORRESPONDING VARIABLE, MESSING UP THE CONSTRUCTION OF THE Q MATRIX
+y_bar = {0: {0: (1.01,2.01,1e-6), 1: (0.99,0.99,1e-6)}, 
+         1: {2: (-0.99,2.01,1e-6), 3: (-1.01,0.99,1e-6)}}
 
 # Covariances
-Sigma_p = np.eye(d)  # Covariance matrix for position
-Sigma_v = np.eye(d)  # Covariance matrix for velocity
-Sigma_omega = np.eye(d**2)  # Covariance matrix for angular velocity
+Sigma_p = np.linalg.inv(np.eye(d))  # Covariance matrix for position
+Sigma_v = np.linalg.inv(np.eye(d))  # Covariance matrix for velocity
+Sigma_omega = np.linalg.inv(np.eye(d**2))  # Covariance matrix for angular velocity
 
 def make_rot_mat(theta):
     return [[np.cos(theta), -np.sin(theta), 0],

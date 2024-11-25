@@ -6,16 +6,17 @@ K = 5   # Num landmarks
 d = 3   # dimension of space (3D)
 
 # Measurement data: maps landmark to {timestamp: measurement} dicts
-y_bar = {0: {0: (-1,3,0), 1: (-1.2,1.6,0)}, 
-         1: {2: (1.45,3.0,0), 3: (1.3,2.0,0)},
-         2: {3: (-1.4,3.6,0), 4: (-1.55,2.45,0)},
-         3: {3: (-0.3,4.4,0), 4: (-0.8,3.1,0), 5: (-1.1,2.0,0)},
-         4: {6: (0.1,5.3,0), 7: (-0.4,4.2,0), 8: (-0.9,3.1,0), 9: (-1.0,1.8,0)}}
+# NOTE: IT'S VERY IMPORTANT THAT NONE OF THESE VALUES ARE PRECISELY ZERO, OR DRAKE WILL AUTO-REMOVE THE CORRESPONDING VARIABLE, MESSING UP THE CONSTRUCTION OF THE Q MATRIX
+y_bar = {0: {0: (-1,3,1e-6), 1: (-1.2,1.6,1e-6)}, 
+         1: {2: (1.45,3.0,1e-6), 3: (1.3,2.0,1e-6)},
+         2: {3: (-1.4,3.6,1e-6), 4: (-1.55,2.45,1e-6)},
+         3: {3: (-0.3,4.4,1e-6), 4: (-0.8,3.1,1e-6), 5: (-1.1,2.0,1e-6)},
+         4: {6: (0.1,5.3,1e-6), 7: (-0.4,4.2,1e-6), 8: (-0.9,3.1,1e-6), 9: (-1.0,1.8,1e-6)}}
 
 # Covariances
-Sigma_p = 4*np.eye(d)  # Covariance matrix for position
-Sigma_v = np.eye(d)  # Covariance matrix for velocity
-Sigma_omega = np.eye(d**2)  # Covariance matrix for angular velocity
+Sigma_p = np.linalg.inv(4*np.eye(d))  # Covariance matrix for position
+Sigma_v = np.linalg.inv(np.eye(d))  # Covariance matrix for velocity
+Sigma_omega = np.linalg.inv(np.eye(d**2))  # Covariance matrix for angular velocity
 
 def make_rot_mat(theta):
     return [[np.cos(theta), -np.sin(theta), 0],
