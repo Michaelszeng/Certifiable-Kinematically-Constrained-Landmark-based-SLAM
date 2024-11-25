@@ -6,19 +6,14 @@ import os
 current_folder = os.path.dirname(os.path.abspath(__file__))
 test_data_path = os.path.join(current_folder, "test_data")
 sys.path.append(test_data_path)
-from test1 import *
+from test2 import *
 
 # Variables
 t = [cp.Variable((d,)) for _ in range(N)]         # Positions t_i
 R = [cp.Variable((d, d)) for _ in range(N)]      # Rotations R_i
 v = [cp.Variable((d,)) for _ in range(N)]         # Velocities v_i
 Omega = [cp.Variable((d, d)) for _ in range(N)]  # Angular velocities Ω_i
-p = [cp.Variable((d,)) for _ in range(K)]         # Landmark positions p_k
-
-# Covariances
-Sigma_p = np.eye(d)  # Covariance matrix for position
-Sigma_v = np.eye(d)  # Covariance matrix for velocity
-Sigma_omega = np.eye(d**2)  # Covariance matrix for angular velocity
+p = [cp.Variable((d,)) for _ in range(K)]         # Landmark positions p_ks
 
 # Objective
 objective = 0
@@ -45,7 +40,3 @@ for i in range(N):
 
 # Solve the optimization
 problem = cp.Problem(cp.Minimize(objective), constraints)
-problem.solve()
-
-# Display results
-print("Optimal objective value:", problem.value)
