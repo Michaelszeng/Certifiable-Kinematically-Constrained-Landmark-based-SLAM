@@ -13,7 +13,7 @@ from visualization_utils import visualize_results
 current_folder = os.path.dirname(os.path.abspath(__file__))
 test_data_path = os.path.join(current_folder, "test_data")
 sys.path.append(test_data_path)
-from test1 import *
+from test2 import *
 
 np.set_printoptions(edgeitems=30, linewidth=200, precision=4, suppress=True)
 
@@ -33,6 +33,8 @@ Omega = [prog.NewContinuousVariables(d, d, f"Omega_{i}") for i in range(N)]     
 
 
 # Constraint Definitions
+Q_constraint = np.zeros((d*N + d*N + d*K + d*d*N + d*d*N, d*N + d*N + d*K + d*d*N + d*d*N))
+b_constraint = np.zeros(d*N + d*N + d*K + d*d*N + d*d*N)
 
 # 1. Constant Twist Constraints
 for i in range(N - 1):
@@ -40,16 +42,31 @@ for i in range(N - 1):
     for dim in range(d):
         # Compute the dim'th element of the matrix vector product R_i @ v_i
         rotation_times_velocity = sum(R[i][dim, k] * v[i][k] for k in range(d))
-        prog.AddConstraint(t[i + 1][dim] == t[i][dim] + rotation_times_velocity)
+        constraint_binding = prog.AddConstraint(t[i + 1][dim] == t[i][dim] + rotation_times_velocity)
+        
+        constraint = constraint_binding.evaluator()
+        # Each dimension of constraint.Q() represents: [t_i[dim], t_{i+1}[dim], v_i[0], v_i[1], v_i[2], R_i[0,0], R_i[0,1], R_i[0,2]]
+        # print(constraint.Q())
+        # print(constraint.b())
+        Q_constraint[d*N + d*i : d*N + d*(i+1), d*N + d*N + d*K + d*d*i + d*dim : d*N + d*N + d*K + d*d*i + d*(dim+1)] += constraint.Q()[2:5, 5:8]  # v,r
+        Q_constraint[d*N + d*N + d*K + d*d*i + d*dim : d*N + d*N + d*K + d*d*i + d*(dim+1), d*N + d*i : d*N + d*(i+1)] += constraint.Q()[5:8, 2:5]  # r,v
+        b_constraint[d*i + dim : d*i + dim + 1] += constraint.b()[0]  # t_i[dim]
+        b_constraint[d*(i+1) + dim : d*(i+1) + dim + 1] += constraint.b()[1]  # t_{i+1}[dim]
+
     
     # Rotation update: R_{i+1} = R_i @ Omega_i
     for row in range(d):
         for col in range(d):
             # Compute the (row, col) element of the matrix multiplication R_i @ Omega_i
             rotation_element = 0
-            for i in range(d):
-                rotation_element += R[i][row, i] * Omega[i][i, col]
-            prog.AddConstraint(R[i + 1][row, col] == rotation_element)
+            for j in range(d):
+                rotation_element += R[i][row, j] * Omega[i][j, col]
+            constraint_binding = prog.AddConstraint(R[i + 1][row, col] == rotation_element)
+            
+            constraint = constraint_binding.evaluator()
+            print(constraint.Q())
+            print(constraint.b())
+            
 
 # 2. SO(3) Constraints: R_i^T @ R_i == I_d
 for i in range(N):
@@ -57,12 +74,20 @@ for i in range(N):
         for col in range(d):
             if row == col:
                 # Diagonal entries
-                prog.AddConstraint(R[i][:, row].dot(R[i][:, col]) == 1)
-                prog.AddConstraint(Omega[i][:, row].dot(Omega[i][:, col]) == 1)
+                constraint_binding_R = prog.AddConstraint(R[i][:, row].dot(R[i][:, col]) == 1)
+                constraint_binding_Omega = prog.AddConstraint(Omega[i][:, row].dot(Omega[i][:, col]) == 1)
             else:
                 # Off-diagonal entries
-                prog.AddConstraint(R[i][:, row].dot(R[i][:, col]) == 0)
-                prog.AddConstraint(Omega[i][:, row].dot(Omega[i][:, col]) == 0)
+                constraint_binding_R = prog.AddConstraint(R[i][:, row].dot(R[i][:, col]) == 0)
+                constraint_binding_Omega = prog.AddConstraint(Omega[i][:, row].dot(Omega[i][:, col]) == 0)
+                
+            constraint_R = constraint_binding_R.evaluator()
+            # print(np.shape(constraint_R.Q()))
+            # print(np.shape(constraint_R.b()))
+            
+            constraint_Omega = constraint_binding_Omega.evaluator()
+            # print(np.shape(constraint_Omega.Q()))
+            # print(np.shape(constraint_Omega.b()))
 
 
 # Objective Function
@@ -135,7 +160,7 @@ for i in range(N - 1):
     # print(cost.Q())
     Q_cost[2*d*N + d*K + d*d*N + d*d*i : 2*d*N + d*K + d*d*N + d*d*(i+2), 2*d*N + d*K + d*d*N + d*d*i : 2*d*N + d*K + d*d*N + d*d*(i+2)] += cost.Q()
 
-print(Q_cost)
+# print(Q_cost)
 
 # Set initial guesses and Solve
 for i in range(N):
@@ -167,18 +192,3 @@ else:
     
 
 visualize_results(N, K, t_sol, v_sol, R_sol, p_sol)
-    
-    
-# Retrieve Q and b matrices and formulate Standard Form QCQP
-for quad_cost in prog.quadratic_costs():
-    quad_cost = quad_cost.evaluator()
-    # print(np.shape(quad_cost.Q()))
-    # print(np.shape(quad_cost.b()))
-    # print(np.shape(quad_cost.c()))
-    
-print("=======================================================================")
-    
-for quad_constraint in prog.quadratic_constraints():
-    quad_constraint = quad_constraint.evaluator()
-    # print(np.shape(quad_constraint.Q()))
-    # print(np.shape(quad_constraint.b()))
