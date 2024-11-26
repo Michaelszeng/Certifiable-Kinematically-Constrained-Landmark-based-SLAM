@@ -33,18 +33,21 @@ Omega = [prog.NewContinuousVariables(d, d, f"Omega_{i}") for i in range(N)]     
 
 
 # Constraint Definitions
-Q_constraint = np.zeros((d*N + d*N + d*K + d*d*N + d*d*N, d*N + d*N + d*K + d*d*N + d*d*N))
-b_constraint = np.zeros(d*N + d*N + d*K + d*d*N + d*d*N)
+Q_constraint = np.zeros((prog.num_vars(), prog.num_vars()))
+b_constraint = np.zeros(prog.num_vars())
 
 # 1. Constant Twist Constraints
 for i in range(N - 1):
     # Position update: t_{i+1} = t_i + R_i @ v_i
     for dim in range(d):
         # Compute the dim'th element of the matrix vector product R_i @ v_i
-        rotation_times_velocity = sum(R[i][dim, k] * v[i][k] for k in range(d))
+        rotation_times_velocity = sum(R[i][dim, j] * v[i][j] for j in range(d))
         constraint_binding = prog.AddConstraint(t[i + 1][dim] == t[i][dim] + rotation_times_velocity)
-        
         constraint = constraint_binding.evaluator()
+        constraint_vars = constraint_binding.variables()
+
+
+        
         # Each dimension of constraint.Q() represents: [t_i[dim], t_{i+1}[dim], v_i[0], v_i[1], v_i[2], R_i[0,0], R_i[0,1], R_i[0,2]]
         # print(constraint.Q())
         # print(constraint.b())
@@ -61,11 +64,21 @@ for i in range(N - 1):
             rotation_element = 0
             for j in range(d):
                 rotation_element += R[i][row, j] * Omega[i][j, col]
+                
             constraint_binding = prog.AddConstraint(R[i + 1][row, col] == rotation_element)
             
             constraint = constraint_binding.evaluator()
-            print(constraint.Q())
-            print(constraint.b())
+            # print(constraint.Q())
+            # print(constraint.b())
+            Q_constraint[d*N + d*N + d*K + d*d*i + d*row + 0, d*N + d*N + d*K + d*d*N + d*d*i + d*0 + col] += constraint.Q()[0,4]  # r[row, 0],w[0, col]
+            Q_constraint[d*N + d*N + d*K + d*d*i + d*row + 1, d*N + d*N + d*K + d*d*N + d*d*i + d*1 + col] += constraint.Q()[1,5]  # r[row, 1],w[1, col]
+            Q_constraint[d*N + d*N + d*K + d*d*i + d*row + 2, d*N + d*N + d*K + d*d*N + d*d*i + d*2 + col] += constraint.Q()[2,6]  # r[row, 2],w[2, col]
+            
+            Q_constraint[d*N + d*N + d*K + d*d*N + d*d*i + d*0 + col, d*N + d*N + d*K + d*d*i + d*row + 0] += constraint.Q()[4,0]  # w[0, col],r[row, 0]
+            Q_constraint[d*N + d*N + d*K + d*d*N + d*d*i + d*1 + col, d*N + d*N + d*K + d*d*i + d*row + 1] += constraint.Q()[5,1]  # w[1, col],r[row, 1]
+            Q_constraint[d*N + d*N + d*K + d*d*N + d*d*i + d*2 + col, d*N + d*N + d*K + d*d*i + d*row + 2] += constraint.Q()[6,2]  # w[2, col],r[row, 2]
+
+            b_constraint[d*N + d*N + d*K + d*d*i + d*row + col] += constraint.b()[3]  # R_{i+1}[d*row + col]
             
 
 # 2. SO(3) Constraints: R_i^T @ R_i == I_d
@@ -74,16 +87,17 @@ for i in range(N):
         for col in range(d):
             if row == col:
                 # Diagonal entries
-                constraint_binding_R = prog.AddConstraint(R[i][:, row].dot(R[i][:, col]) == 1)
-                constraint_binding_Omega = prog.AddConstraint(Omega[i][:, row].dot(Omega[i][:, col]) == 1)
+                constraint_binding_R = prog.AddConstraint(R[i].T[row, :].dot(R[i][:, col]) == 1)
+                constraint_binding_Omega = prog.AddConstraint(Omega[i].T[row, :].dot(Omega[i][:, col]) == 1)
             else:
                 # Off-diagonal entries
-                constraint_binding_R = prog.AddConstraint(R[i][:, row].dot(R[i][:, col]) == 0)
-                constraint_binding_Omega = prog.AddConstraint(Omega[i][:, row].dot(Omega[i][:, col]) == 0)
+                constraint_binding_R = prog.AddConstraint(R[i].T[row, :].dot(R[i][:, col]) == 0)
+                constraint_binding_Omega = prog.AddConstraint(Omega[i].T[row, :].dot(Omega[i][:, col]) == 0)
                 
             constraint_R = constraint_binding_R.evaluator()
-            # print(np.shape(constraint_R.Q()))
-            # print(np.shape(constraint_R.b()))
+            # print(constraint_R.Q())
+            # print(constraint_R.b())
+            
             
             constraint_Omega = constraint_binding_Omega.evaluator()
             # print(np.shape(constraint_Omega.Q()))
@@ -146,7 +160,7 @@ for i in range(N - 1):
 # 3. Angular Velocity Differences
 for i in range(N - 1):
     # Omega_{i+1} - Omega_i, flattened
-    Omega_diff = [Omega[i + 1][k, l] - Omega[i][k, l] for k in range(d) for l in range(d)]
+    Omega_diff = [Omega[i + 1][j, l] - Omega[i][j, l] for j in range(d) for l in range(d)]
     
     # Quadratic form: Omega_diff^T * Sigma_omega * Omega_diff
     quad_form_omega = 0.0
