@@ -32,24 +32,100 @@ R = [prog.NewContinuousVariables(d, d, f"R_{i}") for i in range(N)]             
 Omega = [prog.NewContinuousVariables(d, d, f"Omega_{i}") for i in range(N)]     # Angular velocities Ω_i
 
 
+def add_constraint_to_qcqp(constraint_binding):
+    """
+    Helper function to format a generic (quadratic) constraint into QCQP form by
+    adding to the `Q_constraint` and `b_constraint` arrays.
+    
+    TODO: build compatibility with linear costs as well to make this work with
+    more general formulations that might have linear constraints.
+    
+    Args:
+        constraint_binding: Binding<Constraint> object containing binding for the added constraint
+        
+    Returns:
+        None; augments `Q_constraint` and `b_constraint` directly.
+    """
+    Q_constraint = np.zeros((prog.num_vars(), prog.num_vars()))
+    b_constraint = np.zeros(prog.num_vars())
+    c_constraint = 0
+
+    constraint = constraint_binding.evaluator()
+    constraint_vars = constraint_binding.variables()
+        
+    for j, v1 in enumerate(constraint_vars):
+        v1_idx = prog.FindDecisionVariableIndex(v1)
+
+        for l, v2 in enumerate(constraint_vars):
+            v2_idx = prog.FindDecisionVariableIndex(v2)
+
+            Q_constraint[v1_idx, v2_idx] += constraint.Q()[j, l]
+        
+        b_constraint[v1_idx] = constraint.b()[j]
+        
+    assert constraint.lower_bound() == constraint.upper_bound()
+    c_constraint = -constraint.lower_bound()
+        
+    Q_constraints.append(Q_constraint)
+    b_constraints.append(b_constraint)
+    c_constraints.append(c_constraint)
+        
+    
+
+def add_cost_to_qcqp(cost_binding):
+    """
+    Helper function to format a generic (quadratic) cost into QCQP form by
+    adding to the `Q_cost` and `b_cost` arrays.
+    
+    TODO: build compatibility with linear costs as well to make this work with
+    more general formulations that might have linear costs.
+    
+    Args:
+        cost_binding: Binding<Cost> object containing binding for the added cost
+        
+    Returns:
+        None; augments `Q_cost` and `b_cost` directly.
+    """
+    cost = cost_binding.evaluator()
+    cost_vars = cost_binding.variables()
+        
+    for j, v1 in enumerate(cost_vars):
+        v1_idx = prog.FindDecisionVariableIndex(v1)
+
+        for l, v2 in enumerate(cost_vars):
+            v2_idx = prog.FindDecisionVariableIndex(v2)
+
+            Q_cost[v1_idx, v2_idx] += cost.Q()[j, l]
+        
+        b_cost[v1_idx] = cost.b()[j]
+    
+
 # Constraint Definitions
+# Each constraint is of the form: x^T Q_constraints[i] x + b_constraints[i]^T x + c_constraints[i] = 0
+Q_constraints = []
+b_constraints = []
+c_constraints = []
 
 # 1. Constant Twist Constraints
 for i in range(N - 1):
     # Position update: t_{i+1} = t_i + R_i @ v_i
     for dim in range(d):
         # Compute the dim'th element of the matrix vector product R_i @ v_i
-        rotation_times_velocity = sum(R[i][dim, k] * v[i][k] for k in range(d))
-        prog.AddConstraint(t[i + 1][dim] == t[i][dim] + rotation_times_velocity)
+        rotation_times_velocity = sum(R[i][dim, j] * v[i][j] for j in range(d))
+        constraint_binding = prog.AddConstraint(t[i + 1][dim] == t[i][dim] + rotation_times_velocity)
+        
+        add_constraint_to_qcqp(constraint_binding)
     
     # Rotation update: R_{i+1} = R_i @ Omega_i
     for row in range(d):
         for col in range(d):
             # Compute the (row, col) element of the matrix multiplication R_i @ Omega_i
             rotation_element = 0
-            for i in range(d):
-                rotation_element += R[i][row, i] * Omega[i][i, col]
-            prog.AddConstraint(R[i + 1][row, col] == rotation_element)
+            for j in range(d):
+                rotation_element += R[i][row, j] * Omega[i][j, col]
+            constraint_binding = prog.AddConstraint(R[i + 1][row, col] == rotation_element)
+
+            add_constraint_to_qcqp(constraint_binding)
 
 # 2. SO(3) Constraints: R_i^T @ R_i == I_d
 for i in range(N):
@@ -57,17 +133,20 @@ for i in range(N):
         for col in range(d):
             if row == col:
                 # Diagonal entries
-                prog.AddConstraint(R[i][:, row].dot(R[i][:, col]) == 1)
-                prog.AddConstraint(Omega[i][:, row].dot(Omega[i][:, col]) == 1)
+                constraint_binding_R = prog.AddConstraint(R[i].T[row, :].dot(R[i][:, col]) == 1)
+                constraint_binding_Omega = prog.AddConstraint(Omega[i].T[row, :].dot(Omega[i][:, col]) == 1)
             else:
                 # Off-diagonal entries
-                prog.AddConstraint(R[i][:, row].dot(R[i][:, col]) == 0)
-                prog.AddConstraint(Omega[i][:, row].dot(Omega[i][:, col]) == 0)
+                constraint_binding_R = prog.AddConstraint(R[i].T[row, :].dot(R[i][:, col]) == 0)
+                constraint_binding_Omega = prog.AddConstraint(Omega[i].T[row, :].dot(Omega[i][:, col]) == 0)
+                
+            add_constraint_to_qcqp(constraint_binding_R)
+            add_constraint_to_qcqp(constraint_binding_Omega)
 
 
 # Objective Function
-Q_cost = np.zeros((d*N + d*N + d*K + d*d*N + d*d*N, d*N + d*N + d*K + d*d*N + d*d*N))
-print(f"Q_cost: {np.shape(Q_cost)}")
+Q_cost = np.zeros((prog.num_vars(), prog.num_vars()))
+b_cost = np.zeros(prog.num_vars())
 
 # 1. Landmark Residuals
 for k in range(K):
@@ -88,18 +167,8 @@ for k in range(K):
                 quad_form += residual[r] * Sigma_p[r, c] * residual[c]
         
         cost_binding = prog.AddCost(quad_form)
-        cost = cost_binding.evaluator()
-        # print(cost.Q())
-        # print(np.kron(np.array(y_bar_kj).reshape(3,1).T, Sigma_p))  # t,r = -p,r
-        # print(np.kron(np.array(y_bar_kj).reshape(3,1) @ np.array(y_bar_kj).reshape(3,1).T, Sigma_p))  # r,r
-        Q_cost[d*j : d*(j+1), d*j : d*(j+1)] += cost.Q()[0:3,0:3]  # t,t
-        Q_cost[d*j : d*(j+1), 2*d*N + d*k : 2*d*N + d*(k+1)] += cost.Q()[0:3,3:6]  # t,p
-        Q_cost[2*d*N + d*k : 2*d*N + d*(k+1), d*j : d*(j+1)] += cost.Q()[3:6,0:3]  # p,t
-        Q_cost[2*d*N + d*k : 2*d*N + d*(k+1), 2*d*N + d*k : 2*d*N + d*(k+1)] += cost.Q()[3:6,3:6]  # p,p
-        Q_cost[d*j : d*(j+1), 2*d*N + d*K + d*d*j : 2*d*N + d*K + d*d*(j+1)] += cost.Q()[0:3,6:15]  # t,r
-        Q_cost[2*d*N + d*K + d*d*j : 2*d*N + d*K + d*d*(j+1), d*j : d*(j+1)] += cost.Q()[6:15,0:3]  # r,t
-        Q_cost[2*d*N + d*K + d*d*j : 2*d*N + d*K + d*d*(j+1), 2*d*N + d*K + d*d*j : 2*d*N + d*K + d*d*(j+1)] += cost.Q()[6:15,6:15]  #r,r
         
+        add_cost_to_qcqp(cost_binding)
         
 # 2. Velocity Differences
 for i in range(N - 1):
@@ -113,15 +182,13 @@ for i in range(N - 1):
             quad_form_v += v_diff[r] * Sigma_v[r, c] * v_diff[c]
     
     cost_binding = prog.AddCost(quad_form_v)
-
-    cost = cost_binding.evaluator()
-    # print(cost.Q())
-    Q_cost[d*N + d*i : d*N + d*(i+2), d*N + d*i : d*N + d*(i+2)] += cost.Q()
+    
+    add_cost_to_qcqp(cost_binding)
 
 # 3. Angular Velocity Differences
 for i in range(N - 1):
     # Omega_{i+1} - Omega_i, flattened
-    Omega_diff = [Omega[i + 1][k, l] - Omega[i][k, l] for k in range(d) for l in range(d)]
+    Omega_diff = [Omega[i + 1][j, l] - Omega[i][j, l] for j in range(d) for l in range(d)]
     
     # Quadratic form: Omega_diff^T * Sigma_omega * Omega_diff
     quad_form_omega = 0.0
@@ -131,11 +198,8 @@ for i in range(N - 1):
     
     cost_binding = prog.AddCost(quad_form_omega)
     
-    cost = cost_binding.evaluator()
-    # print(cost.Q())
-    Q_cost[2*d*N + d*K + d*d*N + d*d*i : 2*d*N + d*K + d*d*N + d*d*(i+2), 2*d*N + d*K + d*d*N + d*d*i : 2*d*N + d*K + d*d*N + d*d*(i+2)] += cost.Q()
+    add_cost_to_qcqp(cost_binding)
 
-print(Q_cost)
 
 # Set initial guesses and Solve
 for i in range(N):
@@ -167,18 +231,3 @@ else:
     
 
 visualize_results(N, K, t_sol, v_sol, R_sol, p_sol)
-    
-    
-# Retrieve Q and b matrices and formulate Standard Form QCQP
-for quad_cost in prog.quadratic_costs():
-    quad_cost = quad_cost.evaluator()
-    # print(np.shape(quad_cost.Q()))
-    # print(np.shape(quad_cost.b()))
-    # print(np.shape(quad_cost.c()))
-    
-print("=======================================================================")
-    
-for quad_constraint in prog.quadratic_constraints():
-    quad_constraint = quad_constraint.evaluator()
-    # print(np.shape(quad_constraint.Q()))
-    # print(np.shape(quad_constraint.b()))
