@@ -5,8 +5,8 @@ from pydrake.all import (
     MosekSolver,
 )
 
-import cvxpy as cp
 import numpy as np
+import pandas as pd 
 import sys
 import os
 import time
@@ -295,18 +295,31 @@ print(f"SDP Solve Time: {time.time() - start}")
 print(f"Solved using: {result.get_solver_id().name()}")
 
 if result.is_success():
+    X_sol = result.GetSolution(X)
+    print(f"Rank of X: {np.linalg.matrix_rank(X_sol, rtol=1e-1, hermitian=True)}")
+    
+    # Save X as csv
+    DF = pd.DataFrame(X.value) 
+    DF.to_csv("drake_solver.csv")
+    
+    # Reconstruct x
+    U, S, Vt = np.linalg.svd(X.value, hermitian=True)
+    x_sol = U[:, 0] * np.sqrt(S[0])
+    if x_sol[0] < 0:
+        x_sol = -x_sol
+        
     t_sol = []
     v_sol = []
     R_sol = []
     Omega_sol = []
     p_sol = []
     for i in range(N):
-        t_sol.append(result.GetSolution(t[i]))
-        v_sol.append(result.GetSolution(v[i]))
-        R_sol.append(result.GetSolution(R[i]))
-        Omega_sol.append(result.GetSolution(Omega[i]))
+        t_sol.append(x_sol[d*i : d*(i+1)])
+        v_sol.append(x_sol[d*N + d*i : d*N + d*(i+1)])
+        R_sol.append(x_sol[d*N + d*N + d*K + d*d*i : d*N + d*N + d*K + d*d*(i+1)])
+        Omega_sol.append(x_sol[d*N + d*N + d*K + d*d*N + d*d*i : d*N + d*N + d*K + d*d*N + d*d*(i+1))
     for k in range(K):
-        p_sol.append(result.GetSolution(p[k]))
+        p_sol.append(x_sol[d*N + d*N + d*k : d*N + d*N + d*(k+1)])
     
     visualize_results(N, K, t_sol, v_sol, R_sol, p_sol)
     
