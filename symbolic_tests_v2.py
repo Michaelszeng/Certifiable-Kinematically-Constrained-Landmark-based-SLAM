@@ -1,25 +1,33 @@
 from pydrake.all import (
     MathematicalProgram,
     Solve,
+    SolverOptions,
+    MosekSolver,
 )
 
 import cvxpy as cp
 import numpy as np
 import sys
 import os
+import time
 
 from visualization_utils import visualize_results
 
 current_folder = os.path.dirname(os.path.abspath(__file__))
 test_data_path = os.path.join(current_folder, "test_data")
 sys.path.append(test_data_path)
-from test1 import *
+from test0 import *
 
-np.set_printoptions(edgeitems=30, linewidth=200, precision=4, suppress=True)
+np.set_printoptions(edgeitems=30, linewidth=270, precision=4, suppress=True)
 
 # Full State:
 #      d*N d*N d*K, d*d*N, d*d*N
 # x = [ t,  v,  p,    R,   Omega]
+
+
+################################################################################
+##### NON-CONVEX PROGRAM
+################################################################################
 
 prog = MathematicalProgram()
 
@@ -41,7 +49,7 @@ def add_constraint_to_qcqp(constraint_binding):
     more general formulations that might have linear constraints.
     
     Args:
-        constraint_binding: Binding<Constraint> object containing binding for the added constraint
+        constraint_binding: Binding<Constraint> object containing binding for the added constraint.
         
     Returns:
         None; augments `Q_constraint` and `b_constraint` directly.
@@ -75,13 +83,13 @@ def add_constraint_to_qcqp(constraint_binding):
 def add_cost_to_qcqp(cost_binding):
     """
     Helper function to format a generic (quadratic) cost into QCQP form by
-    adding to the `Q_cost` and `b_cost` arrays.
+    adding to the `Q_cost` matrix.
     
-    TODO: build compatibility with linear costs as well to make this work with
-    more general formulations that might have linear costs.
+    Note that it is assumed the optimization admits a least squares formulation,
+    so there are on linear terms in the cost.
     
     Args:
-        cost_binding: Binding<Cost> object containing binding for the added cost
+        cost_binding: Binding<Cost> object containing binding for the added cost.
         
     Returns:
         None; augments `Q_cost` and `b_cost` directly.
@@ -96,8 +104,6 @@ def add_cost_to_qcqp(cost_binding):
             v2_idx = prog.FindDecisionVariableIndex(v2)
 
             Q_cost[v1_idx, v2_idx] += cost.Q()[j, l]
-        
-        b_cost[v1_idx] = cost.b()[j]
     
 
 # Constraint Definitions
@@ -144,9 +150,9 @@ for i in range(N):
             add_constraint_to_qcqp(constraint_binding_Omega)
 
 
-# Objective Function
+# Cost Function
+# Cost is of the form: x^T Q_cost x
 Q_cost = np.zeros((prog.num_vars(), prog.num_vars()))
-b_cost = np.zeros(prog.num_vars())
 
 # 1. Landmark Residuals
 for k in range(K):
@@ -210,7 +216,11 @@ for i in range(N):
 for k in range(K):
     prog.SetInitialGuess(p[k], p_guess[k])
     
+print("Beginning Non-convex Solve.")
+start = time.time()
 result = Solve(prog)
+print(f"Non-convex Solve Time: {time.time() - start}")
+print(f"Solved using: {result.get_solver_id().name()}")
 
 if result.is_success():
     t_sol = []
@@ -225,9 +235,84 @@ if result.is_success():
         Omega_sol.append(result.GetSolution(Omega[i]))
     for k in range(K):
         p_sol.append(result.GetSolution(p[k]))
-    pass
+    
+    visualize_results(N, K, t_sol, v_sol, R_sol, p_sol)
+    
 else:
     print("solve failed.")
-    
 
-visualize_results(N, K, t_sol, v_sol, R_sol, p_sol)
+
+
+################################################################################
+##### CONVEX SDP RELAXATION
+################################################################################
+
+prog_sdp = MathematicalProgram()
+
+# Homogenize X; i.e. X = [x, 1]^T [x, 1]
+# ⌈  X   x ⌉
+# ⌊ x^T  1 ⌋
+X = prog_sdp.NewContinuousVariables(prog.num_vars()+1, prog.num_vars()+1, "X")
+print(f"X shape: {np.shape(X)}")
+X_flat = X.flatten()
+
+# Homogenize cost matrix Q (add a row & column of zeros)
+# ⌈  Q   0 ⌉
+# ⌊ 0^T  0 ⌋
+Q_cost = np.block([[Q_cost, np.zeros((Q_cost.shape[0], 1))], [np.zeros((1, Q_cost.shape[1] + 1))]])  # Drake is faster if we flatten first, instead of using np.trace()
+
+# Trace(QX) Cost
+Q_cost_flat = Q_cost.flatten()
+prog_sdp.AddLinearCost(Q_cost_flat @ X_flat)
+
+# Trace(QX) + b^T x + c = 0 Constraints
+print(f"Number of constraints in SDP: {len(Q_constraints)}")
+for i in range(len(Q_constraints)):
+    # Build the b vector and c scalar into the Q matrix
+    # ⌈    Q     1/2 b ⌉
+    # ⌊ 1/2 b^T    c   ⌋    
+    Q_constraint = np.block([
+        [Q_constraints[i],                      0.5 * b_constraints[i][:, np.newaxis]],
+        [0.5 * b_constraints[i][np.newaxis, :],                      c_constraints[i]]
+    ])
+    
+    # print(Q_constraint)
+    
+    Q_constraint_flat = Q_constraint.flatten()
+    prog_sdp.AddLinearEqualityConstraint(Q_constraint_flat @ X_flat == 0)  # Drake is faster if we flatten first, instead of using np.trace()
+
+# X ⪰ 0 Constraint
+prog_sdp.AddPositiveSemidefiniteConstraint(X)
+
+sdp_solver_options = SolverOptions()
+mosek_solver = MosekSolver()
+if not mosek_solver.available():
+    print("WARNING: MOSEK unavailable.")
+print("Beginning SDP Solve.")
+start = time.time()
+result = mosek_solver.Solve(prog_sdp, solver_options=sdp_solver_options)
+print(f"SDP Solve Time: {time.time() - start}")
+print(f"Solved using: {result.get_solver_id().name()}")
+
+if result.is_success():
+    t_sol = []
+    v_sol = []
+    R_sol = []
+    Omega_sol = []
+    p_sol = []
+    for i in range(N):
+        t_sol.append(result.GetSolution(t[i]))
+        v_sol.append(result.GetSolution(v[i]))
+        R_sol.append(result.GetSolution(R[i]))
+        Omega_sol.append(result.GetSolution(Omega[i]))
+    for k in range(K):
+        p_sol.append(result.GetSolution(p[k]))
+    
+    visualize_results(N, K, t_sol, v_sol, R_sol, p_sol)
+    
+else:
+    print("solve failed.")
+    print(f"{result.get_solution_result()}")
+    print(f"{result.GetInfeasibleConstraintNames(prog_sdp)}")
+    for constraint_binding in result.GetInfeasibleConstraints(prog_sdp):
+        print(f"{constraint_binding.variables()}")
