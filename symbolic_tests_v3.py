@@ -16,7 +16,7 @@ from visualization_utils import visualize_results
 current_folder = os.path.dirname(os.path.abspath(__file__))
 test_data_path = os.path.join(current_folder, "test_data")
 sys.path.append(test_data_path)
-from test2 import *
+from test0 import *
 
 np.set_printoptions(edgeitems=30, linewidth=270, precision=4, suppress=True)
 
@@ -446,65 +446,137 @@ prog_sdp = MathematicalProgram()
 
 
 
-
-x = prog_sdp.NewContinuousVariables(prog.num_vars() - d*(N-1), "x")  # x is a vector
+X = prog_sdp.NewSymmetricContinuousVariables(prog.num_vars() - d*(N-1), "X")  # X is a symmetric matrix
 v = prog_sdp.NewContinuousVariables(d*(N-1), "v")  # v is a vector
 
 # Add objective 
-prog_sdp.AddQuadraticCost(x.T @ Q_cost @ x + v.T @ P_cost @ v)
+prog_sdp.AddCost(Q_cost.flatten() @ X.flatten() + v.T @ P_cost @ v)
 
 # Add constraints
 for i in range(len(Q_constraints)):
     Q_i = Q_constraints[i]
     b_i = b_constraints[i]
     c_i = c_constraints[i]
-
-    # Constraint: 1/2 x^T Q_i x + b_i^T v + c_i == 0
-    prog_sdp.AddConstraint(0.5 * x.T @ Q_i @ x + b_i.T @ v + c_i == 0)
     
-# Set initial guesses and Solve
-x_guess = (sum(t_guess, []) +
-            sum(p_guess, []) +
-            [val for R in R_guess for val in R.T.flatten()] +
-            [val for Omega in Omega_guess for val in Omega.T.flatten()])
-v_guess = sum(v_guess, [])
-for i in range(len(x_guess)):
-    prog_sdp.SetInitialGuess(x[i], x_guess[i])
-for i in range(len(v_guess)):
-    prog_sdp.SetInitialGuess(v[i], v_guess[i])
+    prog_sdp.AddConstraint(0.5 * Q_i.flatten() @ X.flatten() + b_i.T @ v + c_i == 0)
+    
+prog_sdp.AddPositiveSemidefiniteConstraint(X)
 
-result = Solve(prog_sdp)
+
+sdp_solver_options = SolverOptions()
+mosek_solver = MosekSolver()
+if not mosek_solver.available():
+    print("WARNING: MOSEK unavailable.")
+print("Beginning SDP Solve.")
+start = time.time()
+result = mosek_solver.Solve(prog_sdp, solver_options=sdp_solver_options)
+print(f"SDP Solve Time: {time.time() - start}")
+print(f"Solved using: {result.get_solver_id().name()}")
 
 if result.is_success():
+    X_sol = result.GetSolution(X)
+    v_sol_arr = result.GetSolution(v)
+    print(f"Rank of X: {np.linalg.matrix_rank(X_sol, rtol=1e-1, hermitian=True)}")
+    
+    # Save X as csv
+    X_sol[np.abs(X_sol) < 1e-3] = 0
+    DF = pd.DataFrame(X_sol) 
+    DF.to_csv("drake_solver.csv")
+    
+    # Reconstruct x
+    U, S, _ = np.linalg.svd(X_sol, hermitian=True)
+    x_sol = U[:, 0] * np.sqrt(S[0])
+    if x_sol[d*N + d*K] < 0:
+        x_sol = -x_sol
+
+    print(x_sol)
+        
     t_sol = []
     v_sol = []
     R_sol = []
     Omega_sol = []
     p_sol = []
-    
-    x_sol = result.GetSolution(x)
-    v_sol = result.GetSolution(v)
-    
-    idx = 0
-    
-    # Helper function to unflatten a 3x3 matrix from column-major order
-    def unflatten_column_major(flat_matrix):
-        return np.array(flat_matrix).reshape(3, 3).T
-
-    t_sol = [x_sol[idx + i: idx + i + 3] for i in range(0, N * 3, 3)]
-    idx += N * 3
-
-    p_sol = [x_sol[idx + i: idx + i + 3] for i in range(0, K * 3, 3)]
-    idx += K * 3
-
-    R_sol = [unflatten_column_major(x_sol[idx + i: idx + i + 9]) for i in range(0, N * 9, 9)]
-    idx += N * 9
-
-    Omega_sol = [unflatten_column_major(x_sol[idx + i: idx + i + 9]) for i in range(0, (N-1) * 9, 9)]
-    
-    v_sol = [v_sol[i: i + 3] for i in range(0, (N-1) * 3, 3)]
+    for i in range(N):
+        t_sol.append(x_sol[d*i : d*(i+1)])
+        R_sol.append(x_sol[d*N + d*K + d*d*i : d*N + d*K + d*d*(i+1)].reshape((3,3)))
+    for i in range(N-1):
+        v_sol.append(v_sol_arr[d*i : d*(i+1)])
+        Omega_sol.append(x_sol[d*N + d*K + d*d*N + d*d*i : d*N + d*K + d*d*N + d*d*(i+1)].reshape((3,3)))
+    for k in range(K):
+        p_sol.append(x_sol[d*N + d*(N-1) + d*k : d*N + d*(N-1) + d*(k+1)])
     
     visualize_results(N, K, t_sol, v_sol, R_sol, p_sol)
     
 else:
     print("solve failed.")
+    print(f"{result.get_solution_result()}")
+    print(f"{result.GetInfeasibleConstraintNames(prog_sdp)}")
+    for constraint_binding in result.GetInfeasibleConstraints(prog_sdp):
+        print(f"{constraint_binding.variables()}")
+
+
+
+
+
+
+# x = prog_sdp.NewContinuousVariables(prog.num_vars() - d*(N-1), "x")  # x is a vector
+# v = prog_sdp.NewContinuousVariables(d*(N-1), "v")  # v is a vector
+
+# # Add objective 
+# prog_sdp.AddQuadraticCost(x.T @ Q_cost @ x + v.T @ P_cost @ v)
+
+# # Add constraints
+# for i in range(len(Q_constraints)):
+#     Q_i = Q_constraints[i]
+#     b_i = b_constraints[i]
+#     c_i = c_constraints[i]
+
+#     # Constraint: 1/2 x^T Q_i x + b_i^T v + c_i == 0
+#     prog_sdp.AddConstraint(0.5 * x.T @ Q_i @ x + b_i.T @ v + c_i == 0)
+    
+# # Set initial guesses and Solve
+# x_guess = (sum(t_guess, []) +
+#             sum(p_guess, []) +
+#             [val for R in R_guess for val in R.T.flatten()] +
+#             [val for Omega in Omega_guess for val in Omega.T.flatten()])
+# v_guess = sum(v_guess, [])
+# for i in range(len(x_guess)):
+#     prog_sdp.SetInitialGuess(x[i], x_guess[i])
+# for i in range(len(v_guess)):
+#     prog_sdp.SetInitialGuess(v[i], v_guess[i])
+
+# result = Solve(prog_sdp)
+
+# if result.is_success():
+#     t_sol = []
+#     v_sol = []
+#     R_sol = []
+#     Omega_sol = []
+#     p_sol = []
+    
+#     x_sol = result.GetSolution(x)
+#     v_sol = result.GetSolution(v)
+    
+#     idx = 0
+    
+#     # Helper function to unflatten a 3x3 matrix from column-major order
+#     def unflatten_column_major(flat_matrix):
+#         return np.array(flat_matrix).reshape(3, 3).T
+
+#     t_sol = [x_sol[idx + i: idx + i + 3] for i in range(0, N * 3, 3)]
+#     idx += N * 3
+
+#     p_sol = [x_sol[idx + i: idx + i + 3] for i in range(0, K * 3, 3)]
+#     idx += K * 3
+
+#     R_sol = [unflatten_column_major(x_sol[idx + i: idx + i + 9]) for i in range(0, N * 9, 9)]
+#     idx += N * 9
+
+#     Omega_sol = [unflatten_column_major(x_sol[idx + i: idx + i + 9]) for i in range(0, (N-1) * 9, 9)]
+    
+#     v_sol = [v_sol[i: i + 3] for i in range(0, (N-1) * 3, 3)]
+    
+#     visualize_results(N, K, t_sol, v_sol, R_sol, p_sol)
+    
+# else:
+#     print("solve failed.")
