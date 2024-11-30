@@ -7,11 +7,11 @@ d = 3   # dimension of space (3D)
 
 # Measurement data: maps landmark to {timestamp: measurement} dicts
 # NOTE: IT'S VERY IMPORTANT THAT NONE OF THESE VALUES ARE PRECISELY ZERO, OR DRAKE WILL AUTO-REMOVE THE CORRESPONDING VARIABLE, MESSING UP THE CONSTRUCTION OF THE Q MATRIX
-y_bar = {0: {0: (-1,3,1e-6), 1: (-1.2,1.6,1e-6)}, 
-         1: {2: (1.45,3.0,1e-6), 3: (1.3,2.0,1e-6)},
-         2: {3: (-1.4,3.6,1e-6), 4: (-1.55,2.45,1e-6)},
-         3: {3: (-0.3,4.4,1e-6), 4: (-0.8,3.1,1e-6), 5: (-1.1,2.0,1e-6)},
-         4: {6: (0.1,5.3,1e-6), 7: (-0.4,4.2,1e-6), 8: (-0.9,3.1,1e-6), 9: (-1.0,1.8,1e-6)}}
+y_bar = {0: {0: (-1,3,1e-10), 1: (-1.2,1.6,1e-10)}, 
+         1: {2: (1.45,3.0,1e-10), 3: (1.3,2.0,1e-10)},
+         2: {3: (-1.4,3.6,1e-10), 4: (-1.55,2.45,1e-10)},
+         3: {3: (-0.3,4.4,1e-10), 4: (-0.8,3.1,1e-10), 5: (-1.1,2.0,1e-10)},
+         4: {6: (0.1,5.3,1e-10), 7: (-0.4,4.2,1e-10), 8: (-0.9,3.1,1e-10), 9: (-1.0,1.8,1e-10)}}
 
 # Covariances
 Sigma_p = np.linalg.inv(4*np.eye(d))  # Covariance matrix for position

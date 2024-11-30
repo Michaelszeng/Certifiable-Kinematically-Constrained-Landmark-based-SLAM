@@ -35,7 +35,7 @@ prog = MathematicalProgram()
 # NOTE: DEFINE THESE IN THE ORDER THEY APPEAR IN OUR FULL STATE REPRESENTATION
 t = [prog.NewContinuousVariables(d, f"t_{i}") for i in range(N)]                # Positions t_i
 v = [prog.NewContinuousVariables(d, f"v_{i}") for i in range(N)]                # Velocities v_i
-p = [prog.NewContinuousVariables(d, f"p_{k}") for k in range(K)]                # Landmark positions p_ks
+p = [prog.NewContinuousVariables(d, f"p_{k}") for k in range(K)]                # Landmark positions p_k
 R = [prog.NewContinuousVariables(d, d, f"R_{i}") for i in range(N)]             # Rotations R_i
 Omega = [prog.NewContinuousVariables(d, d, f"Omega_{i}") for i in range(N)]     # Angular velocities Ω_i
 
@@ -86,7 +86,7 @@ def add_cost_to_qcqp(cost_binding):
     adding to the `Q_cost` matrix.
     
     Note that it is assumed the optimization admits a least squares formulation,
-    so there are on linear terms in the cost.
+    so there are no linear terms in the cost.
     
     Args:
         cost_binding: Binding<Cost> object containing binding for the added cost.
@@ -104,10 +104,16 @@ def add_cost_to_qcqp(cost_binding):
             v2_idx = prog.FindDecisionVariableIndex(v2)
 
             Q_cost[v1_idx, v2_idx] += cost.Q()[j, l]
+            if not np.all(cost.b() == 0):
+                print("nonzero b")
+            if not np.all(cost.c() == 0):
+                print("nonzero c")
+            # print(cost.b())
+            # print(cost.c())
     
 
 # Constraint Definitions
-# Each constraint is of the form: x^T Q_constraints[i] x + b_constraints[i]^T x + c_constraints[i] = 0
+# Each constraint is of the form: 1/2 x^T Q_constraints[i] x + b_constraints[i]^T x + c_constraints[i] = 0
 Q_constraints = []
 b_constraints = []
 c_constraints = []
@@ -151,7 +157,7 @@ for i in range(N):
 
 
 # Cost Function
-# Cost is of the form: x^T Q_cost x
+# Cost is of the form: 1/2 x^T Q_cost x
 Q_cost = np.zeros((prog.num_vars(), prog.num_vars()))
 
 # 1. Landmark Residuals
@@ -161,10 +167,10 @@ for k in range(K):
         Rj_y = [sum(R[j][row, m] * y_bar_kj[m] for m in range(d)) for row in range(d)]
         
         # (p[k] - t[j])
-        t_minus_p = [p[k][dim] - t[j][dim] for dim in range(d)]
+        p_minus_t = [p[k][dim] - t[j][dim] for dim in range(d)]
         
-        # Residual: R[j] @ y_bar[k][j] - (t[j] - p[k])
-        residual = [Rj_y[row] - t_minus_p[row] for row in range(d)]
+        # Residual: R[j] @ y_bar[k][j] - (p[k] - t[j])
+        residual = [Rj_y[row] - p_minus_t[row] for row in range(d)]
         
         # Quadratic form: residual^T * Sigma_p * residual
         quad_form = 0.0
@@ -247,19 +253,30 @@ else:
 ##### CONVEX SDP RELAXATION
 ################################################################################
 
+# Clean up matrices
+Q_cost[np.abs(Q_cost) < 1e-9] = 0
+for i in range(len(Q_constraints)):
+    Q_constraints[i][np.abs(Q_constraints[i]) < 1e-9] = 0
+    b_constraints[i][np.abs(b_constraints[i]) < 1e-9] = 0
+    c_constraints[i][np.abs(c_constraints[i]) < 1e-9] = 0
+
 prog_sdp = MathematicalProgram()
 
 # Homogenize X; i.e. X = [x, 1]^T [x, 1]
 # ⌈  X   x ⌉
 # ⌊ x^T  1 ⌋
-X = prog_sdp.NewContinuousVariables(prog.num_vars()+1, prog.num_vars()+1, "X")
+X = prog_sdp.NewSymmetricContinuousVariables(prog.num_vars() + 1, "X")
 print(f"X shape: {np.shape(X)}")
 X_flat = X.flatten()
+
+labels = [var.get_name() for var in prog.decision_variables()]
+DF = pd.DataFrame(Q_cost, index=labels, columns=labels)
+DF.to_csv("drake_solver_Q_cost.csv")
 
 # Homogenize cost matrix Q (add a row & column of zeros)
 # ⌈  Q   0 ⌉
 # ⌊ 0^T  0 ⌋
-Q_cost = np.block([[Q_cost, np.zeros((Q_cost.shape[0], 1))], [np.zeros((1, Q_cost.shape[1] + 1))]])  # Drake is faster if we flatten first, instead of using np.trace()
+Q_cost = np.block([[0.5 * Q_cost, np.zeros((Q_cost.shape[0], 1))], [np.zeros((1, Q_cost.shape[1] + 1))]])  # Drake is faster if we flatten first, instead of using np.trace()
 
 # Trace(QX) Cost
 Q_cost_flat = Q_cost.flatten()
@@ -272,7 +289,7 @@ for i in range(len(Q_constraints)):
     # ⌈    Q     1/2 b ⌉
     # ⌊ 1/2 b^T    c   ⌋    
     Q_constraint = np.block([
-        [Q_constraints[i],                      0.5 * b_constraints[i][:, np.newaxis]],
+        [0.5 * Q_constraints[i],                0.5 * b_constraints[i][:, np.newaxis]],
         [0.5 * b_constraints[i][np.newaxis, :],                      c_constraints[i]]
     ])
     
@@ -299,11 +316,11 @@ if result.is_success():
     print(f"Rank of X: {np.linalg.matrix_rank(X_sol, rtol=1e-1, hermitian=True)}")
     
     # Save X as csv
-    DF = pd.DataFrame(X.value) 
+    DF = pd.DataFrame(X_sol) 
     DF.to_csv("drake_solver.csv")
     
     # Reconstruct x
-    U, S, Vt = np.linalg.svd(X.value, hermitian=True)
+    U, S, Vt = np.linalg.svd(X_sol, hermitian=True)
     x_sol = U[:, 0] * np.sqrt(S[0])
     if x_sol[0] < 0:
         x_sol = -x_sol
@@ -316,8 +333,8 @@ if result.is_success():
     for i in range(N):
         t_sol.append(x_sol[d*i : d*(i+1)])
         v_sol.append(x_sol[d*N + d*i : d*N + d*(i+1)])
-        R_sol.append(x_sol[d*N + d*N + d*K + d*d*i : d*N + d*N + d*K + d*d*(i+1)])
-        Omega_sol.append(x_sol[d*N + d*N + d*K + d*d*N + d*d*i : d*N + d*N + d*K + d*d*N + d*d*(i+1))
+        R_sol.append(x_sol[d*N + d*N + d*K + d*d*i : d*N + d*N + d*K + d*d*(i+1)].reshape((3,3)))
+        Omega_sol.append(x_sol[d*N + d*N + d*K + d*d*N + d*d*i : d*N + d*N + d*K + d*d*N + d*d*(i+1)].reshape((3,3)))
     for k in range(K):
         p_sol.append(x_sol[d*N + d*N + d*k : d*N + d*N + d*(k+1)])
     
