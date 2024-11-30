@@ -22,9 +22,13 @@ def generate_measurements(true_lin_pos, true_ang_pos, true_landmarks):
             measurements[i][t] = (pose @ np.hstack((lm, 1)))[:3].reshape((3, 1))
     return measurements
 
-def print_results(ang_vel, ang_pos, landmarks, lin_vel, lin_pos, rank):
+def print_results(ang_vel, ang_pos, landmarks, lin_vel, lin_pos, rank, S):
     np.set_printoptions(threshold=np.inf, suppress=True,
         formatter={'float_kind':'{:0.4f}'.format})
+
+    print("Singular values:")
+    print(S)
+    print()
 
     print("Angular velocity:")
     print(ang_vel)

@@ -33,5 +33,5 @@ measurements = {
     },
 }
 
-ang_vel, ang_pos, landmarks, lin_vel, lin_pos, rank = certifiable_solver(measurements)
-print_results(ang_vel, ang_pos, landmarks, lin_vel, lin_pos, rank)
+ang_vel, ang_pos, landmarks, lin_vel, lin_pos, rank, S = certifiable_solver(measurements, tol=0.01)
+print_results(ang_vel, ang_pos, landmarks, lin_vel, lin_pos, rank, S)

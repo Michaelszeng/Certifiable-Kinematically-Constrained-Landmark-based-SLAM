@@ -1,7 +1,8 @@
 import cvxpy as cp
 import numpy as np
+import pandas as pd
 
-def certifiable_solver(measurements, rtol=1e-1):
+def certifiable_solver(measurements, tol=1e-1):
     # Number of timesteps and number of measurements
     N = 1
     for lm_meas in measurements.values():
@@ -19,7 +20,7 @@ def certifiable_solver(measurements, rtol=1e-1):
     cov_meas = 1
 
     # Want to minimize tr(QX) + v^TPv
-    X = cp.Variable((dim_x, dim_x), symmetric=True)
+    X = cp.Variable((dim_x, dim_x), PSD=True)
     v = cp.Variable(dim_v)
     Q = np.zeros((dim_x, dim_x))
     P = np.zeros((dim_v, dim_v))
@@ -64,17 +65,16 @@ def certifiable_solver(measurements, rtol=1e-1):
             Q[lm_idx:lm_idx+3, lm_idx:lm_idx+3] += cov_meas * np.identity(3)
             Q[trans_idx:trans_idx+3, trans_idx:trans_idx+3] += cov_meas * np.identity(3)
 
-    # PSD constraint
-    constraints = [X >> 0]
+    constraints = []
 
     # Start point has 0 rotation (identity matrix)
     for i in range(9*N-9, 9*N):
-        for j in range(dim_x):
+        for j in range(9*N-9, dim_x):
             A = np.zeros((dim_x, dim_x))
             A[i, j] = A[j, i] = 1 if i == j else 0.5
-            if i % 9 in {0, 4, 8} and j % 9 in {0, 4, 8} and j < 18*N-9:
+            if i % 9 in {0, 4, 8} and j % 9 in {0, 4, 8} and 9*N-9 <= j < 9*N:
                 constraints.append(cp.trace(A @ X) == 1)
-            elif i % 9 not in {0, 4, 8}:
+            elif i % 9 not in {0, 4, 8} or 9*N-9 <= j < 9*N:
                 constraints.append(cp.trace(A @ X) == 0)
 
     # Start point has 0 translation
@@ -84,24 +84,38 @@ def certifiable_solver(measurements, rtol=1e-1):
             A[i,j] = A[j,i] = 1
             constraints.append(cp.trace(A @ X) == 0)
 
-    # R^TR=I constraints
     for t in range(N):
         for i in range(3):
             for j in range(3):
+                # RR^T=I constraints
                 A = np.zeros((dim_x, dim_x))
                 for k in range(3):
-                    A[9*(N+t-1)+j+3*k, 9*(N+t-1)+3*i+k] = 1 if j+3*k == 3*i+k else 0.5
-                    A[9*(N+t-1)+3*i+k, 9*(N+t-1)+j+3*k] = 1 if j+3*k == 3*i+k else 0.5
+                    A[9*(N+t-1)+3*i+k, 9*(N+t-1)+3*j+k] = 1 if 3*i+k == 3*j+k else 0.5
+                    A[9*(N+t-1)+3*j+k, 9*(N+t-1)+3*i+k] = 1 if 3*i+k == 3*j+k else 0.5
                 constraints.append(cp.trace(A @ X) == (i == j))
 
-    # Omega^TOmega=I constraints
+                # R^TR=I constraints
+                A = np.zeros((dim_x, dim_x))
+                for k in range(3):
+                    A[9*(N+t-1)+i+3*k, 9*(N+t-1)+j+3*k] = 1 if i+3*k == j+3*k else 0.5
+                    A[9*(N+t-1)+j+3*k, 9*(N+t-1)+i+3*k] = 1 if i+3*k == j+3*k else 0.5
+                constraints.append(cp.trace(A @ X) == (i == j))
+ 
     for t in range(N):
         for i in range(3):
             for j in range(3):
+                # OmegaOmega^T=I constraints
                 A = np.zeros((dim_x, dim_x))
                 for k in range(3):
-                    A[9*t+j+3*k, 9*t+3*i+k] = 1 if j+3*k == 3*i+k else 0.5
-                    A[9*t+3*i+k, 9*t+j+3*k] = 1 if j+3*k == 3*i+k else 0.5
+                    A[9*t+3*i+k, 9*t+3*j+k] = 1 if 3*i+k == 3*j+k else 0.5
+                    A[9*t+3*j+k, 9*t+3*i+k] = 1 if 3*i+k == 3*j+k else 0.5
+                constraints.append(cp.trace(A @ X) == (i == j))
+
+                # Omega^TOmega=I constraints
+                A = np.zeros((dim_x, dim_x))
+                for k in range(3):
+                    A[9*t+i+3*k, 9*t+j+3*k] = 1 if i+3*k == j+3*k else 0.5
+                    A[9*t+j+3*k, 9*t+i+3*k] = 1 if i+3*k == j+3*k else 0.5
                 constraints.append(cp.trace(A @ X) == (i == j))
 
     # Translation odometry constraints
@@ -133,24 +147,34 @@ def certifiable_solver(measurements, rtol=1e-1):
                     A[9*t+offset_o+3*i, 9*(N+t)+offset_r+3*j] = -0.5
                 constraints.append(cp.trace(A @ X) == 0)
 
+    # y^2=1 (homogeneous x)
+    A = np.zeros((dim_x, dim_x))
+    A[-1, -1] = 1
+    constraints.append(cp.trace(A @ X) == 1)
+
     # Problem definition
     prob = cp.Problem(cp.Minimize(cp.trace(Q @ X) + cp.quad_form(v, P)), constraints)
     prob.solve(solver=cp.MOSEK)
 
+    # Save results
+    DF = pd.DataFrame(X.value) 
+    DF.to_csv("results.csv")
+
     # Reconstruct x
     U, S, _ = np.linalg.svd(X.value, hermitian=True)
     x = U[:, 0] * np.sqrt(S[0])
-    if x[0] < 0:
+    if x[9*N-9] < 0:
         x = -x
 
     # Retrieve Omega, R, p, t
+    lin_vel = v.value.reshape((N-1), 3)
     ang_vel = x[:9*N-9].reshape((N-1, 3, 3))
     ang_pos = x[9*N-9:18*N-9].reshape((N, 3, 3))
     landmarks = x[18*N-9:18*N-9+3*K].reshape((K, 3))
     lin_pos = x[18*N-9+3*K:].reshape((N, 3))
 
     # Calculate rank of X
-    rank = np.linalg.matrix_rank(X.value, rtol=rtol, hermitian=True)
+    rank = np.linalg.matrix_rank(X.value, tol=tol, hermitian=True)
 
-    return ang_vel, ang_pos, landmarks, v.value, lin_pos, rank
+    return ang_vel, ang_pos, landmarks, lin_vel, lin_pos, rank, S
 
