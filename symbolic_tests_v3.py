@@ -21,8 +21,8 @@ from test0 import *
 np.set_printoptions(edgeitems=30, linewidth=270, precision=4, suppress=True)
 
 # Full State:
-#      d*N d*(N-1) d*K, d*d*N, d*d*(N-1)
-# x = [ t,    v,    p,    R,    Omega ]
+#      d*N d*N d*K, d*d*N, d*d*N
+# x = [ t,  v,  p,    R,   Omega]
 
 
 ################################################################################
@@ -34,10 +34,10 @@ prog = MathematicalProgram()
 # Variable Definitions
 # NOTE: DEFINE THESE IN THE ORDER THEY APPEAR IN OUR FULL STATE REPRESENTATION
 t = [prog.NewContinuousVariables(d, f"t_{i}") for i in range(N)]                # Positions t_i
-v = [prog.NewContinuousVariables(d, f"v_{i}") for i in range(N-1)]                # Velocities v_i
+v = [prog.NewContinuousVariables(d, f"v_{i}") for i in range(N)]                # Velocities v_i
 p = [prog.NewContinuousVariables(d, f"p_{k}") for k in range(K)]                # Landmark positions p_k
 R = [prog.NewContinuousVariables(d, d, f"R_{i}") for i in range(N)]             # Rotations R_i
-Omega = [prog.NewContinuousVariables(d, d, f"Omega_{i}") for i in range(N-1)]     # Angular velocities Ω_i
+Omega = [prog.NewContinuousVariables(d, d, f"Omega_{i}") for i in range(N)]     # Angular velocities Ω_i
 
 
 def add_constraint_to_qcqp(constraint_binding):
@@ -145,30 +145,21 @@ for i in range(N):
         for col in range(d):
             if row == col:
                 # Diagonal entries
-                constraint_binding = prog.AddConstraint(R[i].T[row, :].dot(R[i][:, col]) == 1)
+                constraint_binding_R = prog.AddConstraint(R[i].T[row, :].dot(R[i][:, col]) == 1)
+                constraint_binding_Omega = prog.AddConstraint(Omega[i].T[row, :].dot(Omega[i][:, col]) == 1)
             else:
                 # Off-diagonal entries
-                constraint_binding = prog.AddConstraint(R[i].T[row, :].dot(R[i][:, col]) == 0)
+                constraint_binding_R = prog.AddConstraint(R[i].T[row, :].dot(R[i][:, col]) == 0)
+                constraint_binding_Omega = prog.AddConstraint(Omega[i].T[row, :].dot(Omega[i][:, col]) == 0)
                 
-            add_constraint_to_qcqp(constraint_binding)
-
-# Omega_i^T @ Omega_i == I_d
-for i in range(N-1):
-    for row in range(d):
-        for col in range(d):
-            if row == col:
-                # Diagonal entries
-                constraint_binding = prog.AddConstraint(Omega[i].T[row, :].dot(Omega[i][:, col]) == 1)
-            else:
-                # Off-diagonal entries
-                constraint_binding = prog.AddConstraint(Omega[i].T[row, :].dot(Omega[i][:, col]) == 0)
-
-            add_constraint_to_qcqp(constraint_binding)
+            add_constraint_to_qcqp(constraint_binding_R)
+            add_constraint_to_qcqp(constraint_binding_Omega)
 
 
 # Cost Function
 # Cost is of the form: 1/2 x^T Q_cost x
-Q_cost = np.zeros((prog.num_vars(), prog.num_vars()))
+Q_cost = np.zeros((prog.num_vars() - d*N, prog.num_vars() - d*N))
+P_cost = np.zeros((d*N, d*N))
 
 # 1. Landmark Residuals
 for k in range(K):
@@ -193,7 +184,7 @@ for k in range(K):
         add_cost_to_qcqp(cost_binding)
         
 # 2. Velocity Differences
-for i in range(N - 2):
+for i in range(N - 1):
     # v_{i+1} - v_i
     v_diff = [v[i + 1][dim] - v[i][dim] for dim in range(d)]
     
@@ -208,7 +199,7 @@ for i in range(N - 2):
     add_cost_to_qcqp(cost_binding)
 
 # 3. Angular Velocity Differences
-for i in range(N - 2):
+for i in range(N - 1):
     # Omega_{i+1} - Omega_i, flattened
     Omega_diff = [Omega[i + 1][j, l] - Omega[i][j, l] for j in range(d) for l in range(d)]
     
@@ -226,9 +217,8 @@ for i in range(N - 2):
 # Set initial guesses and Solve
 for i in range(N):
     prog.SetInitialGuess(t[i], t_guess[i])
-    prog.SetInitialGuess(R[i], R_guess[i])
-for i in range(N-1):
     prog.SetInitialGuess(v[i], t_guess[i])
+    prog.SetInitialGuess(R[i], R_guess[i])
     prog.SetInitialGuess(Omega[i], Omega_guess[i])
 for k in range(K):
     prog.SetInitialGuess(p[k], p_guess[k])
@@ -247,9 +237,8 @@ if result.is_success():
     p_sol = []
     for i in range(N):
         t_sol.append(result.GetSolution(t[i]))
-        R_sol.append(result.GetSolution(R[i]))
-    for i in range(N-1):
         v_sol.append(result.GetSolution(v[i]))
+        R_sol.append(result.GetSolution(R[i]))
         Omega_sol.append(result.GetSolution(Omega[i]))
     for k in range(K):
         p_sol.append(result.GetSolution(p[k]))
@@ -384,12 +373,11 @@ if result.is_success():
     p_sol = []
     for i in range(N):
         t_sol.append(x_sol[d*i : d*(i+1)])
-        R_sol.append(x_sol[d*N + d*(N-1) + d*K + d*d*i : d*N + d*(N-1) + d*K + d*d*(i+1)].reshape((3,3)))
-    for i in range(N-1):
         v_sol.append(x_sol[d*N + d*i : d*N + d*(i+1)])
-        Omega_sol.append(x_sol[d*N + d*(N-1) + d*K + d*d*N + d*d*i : d*N + d*(N-1) + d*K + d*d*N + d*d*(i+1)].reshape((3,3)))
+        R_sol.append(x_sol[d*N + d*N + d*K + d*d*i : d*N + d*N + d*K + d*d*(i+1)].reshape((3,3)))
+        Omega_sol.append(x_sol[d*N + d*N + d*K + d*d*N + d*d*i : d*N + d*N + d*K + d*d*N + d*d*(i+1)].reshape((3,3)))
     for k in range(K):
-        p_sol.append(x_sol[d*N + d*(N-1) + d*k : d*N + d*(N-1) + d*(k+1)])
+        p_sol.append(x_sol[d*N + d*N + d*k : d*N + d*N + d*(k+1)])
     
     visualize_results(N, K, t_sol, v_sol, R_sol, p_sol)
     

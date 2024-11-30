@@ -26,6 +26,6 @@ def make_rot_mat(theta):
 # Initial guesses:
 t_guess = [[1,1,0], [1,2.2,0], [1.2,3.2,0], [1.8,4.2,0], [2.4,5.2,0], [3.1,5.8,0], [3.9,6.5,0], [4.9,6.8,0], [6,6.9,0], [7.3,7,0]]
 R_guess = [make_rot_mat(0), make_rot_mat(-0.15708), make_rot_mat(-2*0.15708), make_rot_mat(-3*0.15708), make_rot_mat(-4*0.15708), make_rot_mat(-5*0.15708), make_rot_mat(-6*0.15708), make_rot_mat(-7*0.15708), make_rot_mat(-8*0.15708), make_rot_mat(-9*0.15708)]
-v_guess = [[0,1.2,0]]*N
-Omega_guess = [make_rot_mat(-0.15708)]*N
+v_guess = [[0,1.2,0]]*(N-1)
+Omega_guess = [make_rot_mat(-0.15708)]*(N-1)
 p_guess = [[0,4,0], [4,5,0], [3,8,0], [4,8,0], [9,8,0]]
