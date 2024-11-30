@@ -15,9 +15,9 @@ Sigma_v = np.linalg.inv(np.eye(d))  # Covariance matrix for velocity
 Sigma_omega = np.linalg.inv(np.eye(d**2))  # Covariance matrix for angular velocity
 
 def make_rot_mat(theta):
-    return [[np.cos(theta), -np.sin(theta), 0],
-            [np.sin(theta),  np.cos(theta), 0],
-            [0,              0,             1]]
+    return np.array([[np.cos(theta), -np.sin(theta), 0],
+                     [np.sin(theta),  np.cos(theta), 0],
+                     [0,              0,             1]])
 
 # Initial guesses:
 t_guess = [[0.04,-0.01,0], [-0.07,0.94,0]]

@@ -40,7 +40,7 @@ R = [prog.NewContinuousVariables(d, d, f"R_{i}") for i in range(N)]             
 Omega = [prog.NewContinuousVariables(d, d, f"Omega_{i}") for i in range(N-1)]     # Angular velocities Ω_i
 
 
-def add_constraint_to_qcqp(constraint_binding):
+def add_constraint_to_qcqp(name, constraint_binding):
     """
     Helper function to format a generic (quadratic) constraint into QCQP form by
     adding to the `Q_constraint` and `b_constraint` arrays.
@@ -74,6 +74,7 @@ def add_constraint_to_qcqp(constraint_binding):
     assert constraint.lower_bound() == constraint.upper_bound()
     c_constraint = -constraint.lower_bound()
         
+    constraint_names.append(name)
     Q_constraints.append(Q_constraint)
     b_constraints.append(b_constraint)
     c_constraints.append(c_constraint)
@@ -114,6 +115,7 @@ def add_cost_to_qcqp(cost_binding):
 
 # Constraint Definitions
 # Each constraint is of the form: 1/2 x^T Q_constraints[i] x + b_constraints[i]^T x + c_constraints[i] = 0
+constraint_names = []  # For debugging convenience
 Q_constraints = []
 b_constraints = []
 c_constraints = []
@@ -126,7 +128,7 @@ for i in range(N - 1):
         rotation_times_velocity = sum(R[i][dim, j] * v[i][j] for j in range(d))
         constraint_binding = prog.AddConstraint(t[i + 1][dim] == t[i][dim] + rotation_times_velocity)
         
-        add_constraint_to_qcqp(constraint_binding)
+        add_constraint_to_qcqp(f"t_odom_{i}_{dim}", constraint_binding)
     
     # Rotation update: R_{i+1} = R_i @ Omega_i
     for row in range(d):
@@ -137,7 +139,7 @@ for i in range(N - 1):
                 rotation_element += R[i][row, j] * Omega[i][j, col]
             constraint_binding = prog.AddConstraint(R[i + 1][row, col] == rotation_element)
 
-            add_constraint_to_qcqp(constraint_binding)
+            add_constraint_to_qcqp(f"R_odom_{i}_{row}_{col}", constraint_binding)
 
 # 2. SO(3) Constraints: R_i^T @ R_i == I_d
 for i in range(N):
@@ -150,7 +152,7 @@ for i in range(N):
                 # Off-diagonal entries
                 constraint_binding = prog.AddConstraint(R[i].T[row, :].dot(R[i][:, col]) == 0)
                 
-            add_constraint_to_qcqp(constraint_binding)
+            add_constraint_to_qcqp(f"R_ortho_{i}_{row}_{col}", constraint_binding)
 
 # Omega_i^T @ Omega_i == I_d
 for i in range(N-1):
@@ -163,7 +165,7 @@ for i in range(N-1):
                 # Off-diagonal entries
                 constraint_binding = prog.AddConstraint(Omega[i].T[row, :].dot(Omega[i][:, col]) == 0)
 
-            add_constraint_to_qcqp(constraint_binding)
+            add_constraint_to_qcqp(f"omega_ortho_{i}_{row}_{col}", constraint_binding)
 
 
 # Cost Function
@@ -319,12 +321,46 @@ prog_sdp = MathematicalProgram()
 
 
 
-# Decision variables
-x = prog_sdp.NewContinuousVariables(prog.num_vars(), "x")  # x is a vector
-Y = prog_sdp.NewSymmetricContinuousVariables(prog.num_vars(), "Y")  # Y is a symmetric matrix
+# # Decision variables
+# x = prog_sdp.NewContinuousVariables(prog.num_vars(), "x")  # x is a vector
+# Y = prog_sdp.NewSymmetricContinuousVariables(prog.num_vars(), "Y")  # Y is a symmetric matrix
 
-# Add objective: ⟨Q_cost, Y⟩ + 2 * b_cost.T @ x + c_cost
-prog_sdp.AddLinearCost(np.trace(Q_cost @ Y))
+# # Add objective: ⟨Q_cost, Y⟩ + 2 * b_cost.T @ x + c_cost
+# prog_sdp.AddLinearCost(np.trace(Q_cost @ Y))
+
+# # Add constraints
+# for i in range(len(Q_constraints)):
+#     Q_i = Q_constraints[i]
+#     b_i = b_constraints[i]
+#     c_i = c_constraints[i]
+
+#     # Constraint: ⟨Q_i, Y⟩ + 2 * b_i^T x + c_i == 0
+#     # prog_sdp.AddLinearEqualityConstraint(np.trace(Q_i @ Y) + 2 * b_i.dot(x) + c_i == 0)
+#     prog_sdp.AddLinearEqualityConstraint((Q_i.flatten() @ Y.flatten()) + 2 * b_i.dot(x) + c_i == 0)
+
+
+# # Positive semidefinite constraint using the Schur complement
+# # M = [Y  x]
+# #     [x'  1]
+# n = prog.num_vars()
+# M = prog_sdp.NewSymmetricContinuousVariables(n + 1, "M")
+# M[:n, :n] = Y
+# M[:n, n] = x
+# M[n, :n] = x
+# M[n, n] = 1
+# prog_sdp.AddPositiveSemidefiniteConstraint(M)
+
+# # Solve the problem
+# result = Solve(prog_sdp)
+
+
+
+
+
+x = prog_sdp.NewContinuousVariables(prog.num_vars(), "x")  # x is a vector
+
+# Add objective: ⟨Q_cost, Y⟩ 
+prog_sdp.AddQuadraticCost(x.T @ Q_cost @ x)
 
 # Add constraints
 for i in range(len(Q_constraints)):
@@ -332,70 +368,98 @@ for i in range(len(Q_constraints)):
     b_i = b_constraints[i]
     c_i = c_constraints[i]
 
-    # Constraint: ⟨Q_i, Y⟩ + 2 * b_i^T x + c_i == 0
-    # prog_sdp.AddLinearEqualityConstraint(np.trace(Q_i @ Y) + 2 * b_i.dot(x) + c_i == 0)
-    prog_sdp.AddLinearEqualityConstraint((Q_i.flatten() @ Y.flatten()) + 2 * b_i.dot(x) + c_i == 0)
+    # Constraint: 1/2 x^T Q_i x + b_i^T x + c_i == 0
+    prog_sdp.AddQuadraticConstraint(Q=Q_i, b=b_i, lb=-c_i, ub=-c_i, vars=x)
+    
+# Set initial guesses and Solve
+x_guess = (sum(t_guess, []) +
+            sum(v_guess, []) +
+            sum(p_guess, []) +
+            [val for R in R_guess for val in R.T.flatten()] +
+            [val for Omega in Omega_guess for val in Omega.T.flatten()])
+prog_sdp.SetInitialGuess(x, x_guess)
 
-
-# Positive semidefinite constraint using the Schur complement
-# M = [Y  x]
-#     [x'  1]
-n = prog.num_vars()
-M = prog_sdp.NewSymmetricContinuousVariables(n + 1, "M")
-M[:n, :n] = Y
-M[:n, n] = x
-M[n, :n] = x
-M[n, n] = 1
-prog_sdp.AddPositiveSemidefiniteConstraint(M)
-
-# Solve the problem
 result = Solve(prog_sdp)
 
-
-
-sdp_solver_options = SolverOptions()
-mosek_solver = MosekSolver()
-if not mosek_solver.available():
-    print("WARNING: MOSEK unavailable.")
-print("Beginning SDP Solve.")
-start = time.time()
-result = mosek_solver.Solve(prog_sdp, solver_options=sdp_solver_options)
-print(f"SDP Solve Time: {time.time() - start}")
-print(f"Solved using: {result.get_solver_id().name()}")
-
 if result.is_success():
-    X_sol = result.GetSolution(Y)
-    print(f"Rank of X: {np.linalg.matrix_rank(X_sol, rtol=1e-1, hermitian=True)}")
-    
-    # Save X as csv
-    DF = pd.DataFrame(X_sol) 
-    DF.to_csv("drake_solver.csv")
-    
-    # Reconstruct x
-    U, S, Vt = np.linalg.svd(X_sol, hermitian=True)
-    x_sol = U[:, 0] * np.sqrt(S[0])
-    if x_sol[0] < 0:
-        x_sol = -x_sol
-        
     t_sol = []
     v_sol = []
     R_sol = []
     Omega_sol = []
     p_sol = []
-    for i in range(N):
-        t_sol.append(x_sol[d*i : d*(i+1)])
-        R_sol.append(x_sol[d*N + d*(N-1) + d*K + d*d*i : d*N + d*(N-1) + d*K + d*d*(i+1)].reshape((3,3)))
-    for i in range(N-1):
-        v_sol.append(x_sol[d*N + d*i : d*N + d*(i+1)])
-        Omega_sol.append(x_sol[d*N + d*(N-1) + d*K + d*d*N + d*d*i : d*N + d*(N-1) + d*K + d*d*N + d*d*(i+1)].reshape((3,3)))
-    for k in range(K):
-        p_sol.append(x_sol[d*N + d*(N-1) + d*k : d*N + d*(N-1) + d*(k+1)])
+    
+    x_sol = result.GetSolution(x)
+    
+    idx = 0
+    
+    # Helper function to unflatten a 3x3 matrix from column-major order
+    def unflatten_column_major(flat_matrix):
+        return np.array(flat_matrix).reshape(3, 3).T
+
+    t_sol = [x_sol[idx + i: idx + i + 3] for i in range(0, N * 3, 3)]
+    idx += N * 3
+
+    v_sol = [x_sol[idx + i: idx + i + 3] for i in range(0, (N-1) * 3, 3)]
+    idx += (N-1) * 3
+
+    p_sol = [x_sol[idx + i: idx + i + 3] for i in range(0, K * 3, 3)]
+    idx += K * 3
+
+    R_sol = [unflatten_column_major(x_sol[idx + i: idx + i + 9]) for i in range(0, N * 9, 9)]
+    idx += N * 9
+
+    Omega_sol = [unflatten_column_major(x_sol[idx + i: idx + i + 9]) for i in range(0, (N-1) * 9, 9)]
     
     visualize_results(N, K, t_sol, v_sol, R_sol, p_sol)
     
 else:
     print("solve failed.")
-    print(f"{result.get_solution_result()}")
-    print(f"{result.GetInfeasibleConstraintNames(prog_sdp)}")
-    for constraint_binding in result.GetInfeasibleConstraints(prog_sdp):
-        print(f"{constraint_binding.variables()}")
+
+
+
+# sdp_solver_options = SolverOptions()
+# mosek_solver = MosekSolver()
+# if not mosek_solver.available():
+#     print("WARNING: MOSEK unavailable.")
+# print("Beginning SDP Solve.")
+# start = time.time()
+# result = mosek_solver.Solve(prog_sdp, solver_options=sdp_solver_options)
+# print(f"SDP Solve Time: {time.time() - start}")
+# print(f"Solved using: {result.get_solver_id().name()}")
+
+# if result.is_success():
+#     X_sol = result.GetSolution(Y)
+#     print(f"Rank of X: {np.linalg.matrix_rank(X_sol, rtol=1e-1, hermitian=True)}")
+    
+#     # Save X as csv
+#     DF = pd.DataFrame(X_sol) 
+#     DF.to_csv("drake_solver.csv")
+    
+#     # Reconstruct x
+#     U, S, Vt = np.linalg.svd(X_sol, hermitian=True)
+#     x_sol = U[:, 0] * np.sqrt(S[0])
+#     if x_sol[0] < 0:
+#         x_sol = -x_sol
+        
+#     t_sol = []
+#     v_sol = []
+#     R_sol = []
+#     Omega_sol = []
+#     p_sol = []
+#     for i in range(N):
+#         t_sol.append(x_sol[d*i : d*(i+1)])
+#         R_sol.append(x_sol[d*N + d*(N-1) + d*K + d*d*i : d*N + d*(N-1) + d*K + d*d*(i+1)].reshape((3,3)))
+#     for i in range(N-1):
+#         v_sol.append(x_sol[d*N + d*i : d*N + d*(i+1)])
+#         Omega_sol.append(x_sol[d*N + d*(N-1) + d*K + d*d*N + d*d*i : d*N + d*(N-1) + d*K + d*d*N + d*d*(i+1)].reshape((3,3)))
+#     for k in range(K):
+#         p_sol.append(x_sol[d*N + d*(N-1) + d*k : d*N + d*(N-1) + d*(k+1)])
+    
+#     visualize_results(N, K, t_sol, v_sol, R_sol, p_sol)
+    
+# else:
+#     print("solve failed.")
+#     print(f"{result.get_solution_result()}")
+#     print(f"{result.GetInfeasibleConstraintNames(prog_sdp)}")
+#     for constraint_binding in result.GetInfeasibleConstraints(prog_sdp):
+#         print(f"{constraint_binding.variables()}")
