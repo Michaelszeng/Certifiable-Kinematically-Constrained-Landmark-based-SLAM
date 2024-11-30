@@ -147,11 +147,6 @@ def certifiable_solver(measurements, tol=1e-1):
                     A[9*t+offset_o+3*i, 9*(N+t)+offset_r+3*j] = -0.5
                 constraints.append(cp.trace(A @ X) == 0)
 
-    # y^2=1 (homogeneous x)
-    A = np.zeros((dim_x, dim_x))
-    A[-1, -1] = 1
-    constraints.append(cp.trace(A @ X) == 1)
-
     # Problem definition
     prob = cp.Problem(cp.Minimize(cp.trace(Q @ X) + cp.quad_form(v, P)), constraints)
     prob.solve(solver=cp.MOSEK)
