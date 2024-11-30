@@ -2,7 +2,7 @@ import cvxpy as cp
 import numpy as np
 import pandas as pd
 
-def certifiable_solver(measurements, tol=1e-1):
+def certifiable_solver(measurements, tol=1e-3):
     # Number of timesteps and number of measurements
     N = 1
     for lm_meas in measurements.values():
@@ -11,7 +11,7 @@ def certifiable_solver(measurements, tol=1e-1):
     K = len(measurements)
 
     # [Omega R p t]
-    dim_x = 21 * N + 3 * K - 9
+    dim_x = 21 * N + 3 * K - 8
     dim_v = 3 * N - 3
 
     # Velocity, angular velocity, and measurement covariances
@@ -147,6 +147,32 @@ def certifiable_solver(measurements, tol=1e-1):
                     A[9*t+offset_o+3*i, 9*(N+t)+offset_r+3*j] = -0.5
                 constraints.append(cp.trace(A @ X) == 0)
 
+    # Homogeneous constraints
+    A = np.zeros((dim_x, dim_x))
+    A[-1, -1] = 1
+    constraints.append(cp.trace(A @ X) == 1)
+    for i in range(9*N-9, 9*N):
+        A = np.zeros((dim_x, dim_x))
+        A[-1, i] = 0.5
+        A[i, -1] = 0.5
+        if i % 9 in {0, 4, 8}:
+            constraints.append(cp.trace(A @ X) == 1)
+        else:
+            constraints.append(cp.trace(A @ X) == 0)
+
+    # Redundant rotation odometry constraints
+    for t in range(N - 2):
+        for j in range(3):
+            for i in range(3):
+                A = np.zeros((dim_x, dim_x))
+                offsets = [(-9, 0), (-8, 3), (-7, 6)] # Offset for R_t, Omega_t
+                for offset_r, offset_o in offsets:
+                    A[9*(N+t)+offset_r+3*j,9*t+offset_o+i] = 0.5
+                    A[9*t+offset_o+i, 9*(N+t)+offset_r+3*j] = 0.5
+                A[-1, 9*(N+t)+3*j+i] = -0.5
+                A[9*(N+t)+3*j+i, -1] = -0.5
+                constraints.append(cp.trace(A @ X) == 0)
+
     # Problem definition
     prob = cp.Problem(cp.Minimize(cp.trace(Q @ X) + cp.quad_form(v, P)), constraints)
     prob.solve(solver=cp.MOSEK)
@@ -166,7 +192,7 @@ def certifiable_solver(measurements, tol=1e-1):
     ang_vel = x[:9*N-9].reshape((N-1, 3, 3))
     ang_pos = x[9*N-9:18*N-9].reshape((N, 3, 3))
     landmarks = x[18*N-9:18*N-9+3*K].reshape((K, 3))
-    lin_pos = x[18*N-9+3*K:].reshape((N, 3))
+    lin_pos = x[18*N-9+3*K:21*N+3*K-9].reshape((N, 3))
 
     # Calculate rank of X
     rank = np.linalg.matrix_rank(X.value, tol=tol, hermitian=True)
