@@ -22,6 +22,30 @@ def generate_measurements(true_lin_pos, true_ang_pos, true_landmarks):
             measurements[i][t] = (pose @ np.hstack((lm, 1)))[:3].reshape((3, 1))
     return measurements
 
+def print_ground_truth(ang_vel, ang_pos, landmarks, lin_vel, lin_pos):
+    np.set_printoptions(threshold=np.inf, suppress=True,
+        formatter={'float_kind':'{:0.4f}'.format})
+
+    print("Ground truth angular velocity:")
+    print(ang_vel)
+    print()
+
+    print("Ground truth angular position:")
+    print(ang_pos)
+    print()
+
+    print("Ground truth landmarks:")
+    print(landmarks)
+    print()
+
+    print("Ground truth linear velocity:")
+    print(lin_vel)
+    print()
+
+    print("Ground truth linear position:")
+    print(lin_pos)
+    print()
+
 def print_results(ang_vel, ang_pos, landmarks, lin_vel, lin_pos, rank, S):
     np.set_printoptions(threshold=np.inf, suppress=True,
         formatter={'float_kind':'{:0.4f}'.format})
