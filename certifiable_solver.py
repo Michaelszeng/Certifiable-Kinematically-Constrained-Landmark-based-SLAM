@@ -2,7 +2,7 @@ import cvxpy as cp
 import numpy as np
 import pandas as pd
 
-def certifiable_solver(measurements, tol=1e-3):
+def certifiable_solver(measurements, tol=1e-6):
     # Number of timesteps and number of measurements
     N = 1
     for lm_meas in measurements.values():
@@ -172,7 +172,7 @@ def certifiable_solver(measurements, tol=1e-3):
                 A[-1, 9*(N+t)+3*j+i] = -0.5
                 A[9*(N+t)+3*j+i, -1] = -0.5
                 constraints.append(cp.trace(A @ X) == 0)
-
+    
     # Problem definition
     prob = cp.Problem(cp.Minimize(cp.trace(Q @ X) + cp.quad_form(v, P)), constraints)
     prob.solve(solver=cp.MOSEK)

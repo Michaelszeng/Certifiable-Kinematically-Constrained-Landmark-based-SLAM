@@ -51,3 +51,35 @@ def visualize_results(N, K, t, v, R, p):
 
     plt.grid()
     plt.show()
+
+def visualize_results_3d(calc_landmarks, calc_lin_pos):
+    # Create 3D plot
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+
+    # Plot landmarks
+    ax.scatter(calc_landmarks[:, 0], calc_landmarks[:, 1], calc_landmarks[:, 2], color='r', label='Landmarks')
+
+    # Plot linear position
+    ax.plot(calc_lin_pos[:, 0], calc_lin_pos[:, 1], calc_lin_pos[:, 2], marker='o', label='Linear Position')
+
+    # Set labels and title
+    ax.set_xlabel('X')
+    ax.set_ylabel('Y')
+    ax.set_zlabel('Z')
+    ax.set_title('3D Visualization of Landmarks and Positions')
+
+    # Set the limits for the axes to be the same
+    max_range = np.ptp(np.concatenate([calc_landmarks, calc_lin_pos], axis=0), axis=0).max()
+    mid_point = np.mean(np.concatenate([calc_landmarks, calc_lin_pos], axis=0), axis=0)
+
+    # Set equal scaling by adjusting limits
+    ax.set_xlim(mid_point[0] - max_range, mid_point[0] + max_range)
+    ax.set_ylim(mid_point[1] - max_range, mid_point[1] + max_range)
+    ax.set_zlim(mid_point[2] - max_range, mid_point[2] + max_range)
+
+    # Add legend
+    ax.legend()
+
+    # Show plot
+    plt.show()
