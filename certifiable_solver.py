@@ -161,7 +161,7 @@ def certifiable_solver(measurements, tol=1e-6):
             constraints.append(cp.trace(A @ X) == 0)
 
     # Redundant rotation odometry constraints
-    for t in range(N - 2):
+    for t in range(N - 1):
         for j in range(3):
             for i in range(3):
                 A = np.zeros((dim_x, dim_x))

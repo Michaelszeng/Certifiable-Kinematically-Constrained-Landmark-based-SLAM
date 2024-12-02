@@ -4,10 +4,10 @@ from certifiable_solver import certifiable_solver
 from solver_utils import generate_ground_truth, generate_measurements, print_ground_truth, print_results
 from visualization_utils import visualize_results_3d
 
-true_lin_vel = np.array([2, 0, 0])
-true_rpy_vel = np.array([0, 0, 0])
+true_lin_vel = np.array([2, 0, 1])
+true_rpy_vel = np.array([30, 0, 0])
 
-num_landmarks = 5
+num_landmarks = 6
 num_timesteps = 5
 
 true_landmarks = np.random.uniform(-20, 20, size=(num_landmarks, 3))
