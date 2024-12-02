@@ -1,20 +1,19 @@
 import numpy as np
 
 # Parameters
-N = 10  # Num time steps
-K = 5   # Num landmarks
+N = 4  # Num time steps
+K = 3   # Num landmarks
 d = 3   # dimension of space (3D)
 
+SQRT2 = np.sqrt(2)
+
 # Measurement data: maps landmark to {timestamp: measurement} dicts
-# NOTE: IT'S VERY IMPORTANT THAT NONE OF THESE VALUES ARE PRECISELY ZERO, OR DRAKE WILL AUTO-REMOVE THE CORRESPONDING VARIABLE, MESSING UP THE CONSTRUCTION OF THE Q MATRIX
-y_bar = {0: {0: (-1,3,1e-10), 1: (-1.2,1.6,1e-10)}, 
-         1: {2: (1.45,3.0,1e-10), 3: (1.3,2.0,1e-10)},
-         2: {3: (-1.4,3.6,1e-10), 4: (-1.55,2.45,1e-10)},
-         3: {3: (-0.3,4.4,1e-10), 4: (-0.8,3.1,1e-10), 5: (-1.1,2.0,1e-10)},
-         4: {6: (0.1,5.3,1e-10), 7: (-0.4,4.2,1e-10), 8: (-0.9,3.1,1e-10), 9: (-1.0,1.8,1e-10)}}
+y_bar = {0: {0: (1,3,0.5), 1: (-SQRT2/2,SQRT2*1.5,0.5), 2: (-1-(1-(1/SQRT2)),1-(1/SQRT2),0.5), 3: (-(SQRT2-1),-SQRT2,0.5)},
+         1: {0: (2,3,0), 1: (0,SQRT2*2,0), 2:(-1-(1-(1/SQRT2)),1+1-(1/SQRT2),0), 3: (-(SQRT2-1)-(SQRT2/2),-SQRT2/2,0)},
+         2: {0: (2,2,-0.5), 1: (SQRT2/2, SQRT2*1.5,-0.5), 2: (1-(1/SQRT2),1+1-(1/SQRT2),-0.5), 3: (-(SQRT2-1),0,-0.5)}}
 
 # Covariances
-Sigma_p = np.linalg.inv(4*np.eye(d))  # Covariance matrix for position
+Sigma_p = np.linalg.inv(np.eye(d))  # Covariance matrix for position
 Sigma_v = np.linalg.inv(np.eye(d))  # Covariance matrix for velocity
 Sigma_omega = np.linalg.inv(np.eye(d**2))  # Covariance matrix for angular velocity
 
@@ -24,8 +23,8 @@ def make_rot_mat(theta):
                      [0,              0,             1]])
 
 # Initial guesses:
-t_guess = [[1,1,0], [1,2.2,0], [1.2,3.2,0], [1.8,4.2,0], [2.4,5.2,0], [3.1,5.8,0], [3.9,6.5,0], [4.9,6.8,0], [6,6.9,0], [7.3,7,0]]
-R_guess = [make_rot_mat(0), make_rot_mat(-0.15708), make_rot_mat(-2*0.15708), make_rot_mat(-3*0.15708), make_rot_mat(-4*0.15708), make_rot_mat(-5*0.15708), make_rot_mat(-6*0.15708), make_rot_mat(-7*0.15708), make_rot_mat(-8*0.15708), make_rot_mat(-9*0.15708)]
-v_guess = [[0,1.2,0]]*(N-1)
-Omega_guess = [make_rot_mat(-0.15708)]*(N-1)
-p_guess = [[0,4,0], [4,5,0], [3,8,0], [4,8,0], [9,8,0]]
+t_guess = [[0.01,-0.01,0], [-0.02,0.99,0], [0.71,1.71,0], [1.71,1.71,0]]
+R_guess = [make_rot_mat(0.01), make_rot_mat(-np.pi/4), make_rot_mat(-np.pi/2), make_rot_mat(-3*np.pi/4)]
+v_guess = [[0,1.0,0]]*(N-1)
+Omega_guess = [make_rot_mat(0)]*(N-1)
+p_guess = [[1.01,3.01,0.5], [2.01,3.01,0], [2.01,1.99,0]]

@@ -11,12 +11,12 @@ import sys
 import os
 import time
 
-from visualization_utils import visualize_results
+from visualization_utils import *
 
 current_folder = os.path.dirname(os.path.abspath(__file__))
 test_data_path = os.path.join(current_folder, "test_data")
 sys.path.append(test_data_path)
-from test0 import *
+from test4 import *
 
 np.set_printoptions(edgeitems=30, linewidth=270, precision=4, suppress=True)
 
@@ -74,8 +74,6 @@ def add_constraint_to_qcqp(name, constraint_binding):
                 Q_constraint[v1_idx, v2_idx] += constraint.Q()[j, l]
         
         if constraint.b()[j] != 0:
-            print(v1)
-            print(v2)
             b_constraint[v1_idx - d*N - d*K - d*d*N - d*d*(N-1)] = constraint.b()[j]
         
     assert constraint.lower_bound() == constraint.upper_bound()
@@ -174,31 +172,56 @@ for i in range(N - 2):
 
             add_constraint_to_qcqp(f"R_odom_{i}_{row}_{col}", constraint_binding)
 
-# 2. SO(3) Constraints: R_i^T @ R_i == I_d
+# 3. SO(3) Constraint on Rotation: R_i^T @ R_i == I_d and R_i @ R_i^T == I_d
 for i in range(N):
     for row in range(d):
         for col in range(d):
             if row == col:
                 # Diagonal entries
-                constraint_binding = prog.AddConstraint(R[i].T[row, :].dot(R[i][:, col]) == 1)
+                constraint_binding1 = prog.AddConstraint(R[i].T[row, :].dot(R[i][:, col]) == 1)
+                constraint_binding2 = prog.AddConstraint(R[i][row, :].dot(R[i].T[:, col]) == 1)
             else:
                 # Off-diagonal entries
-                constraint_binding = prog.AddConstraint(R[i].T[row, :].dot(R[i][:, col]) == 0)
+                constraint_binding1 = prog.AddConstraint(R[i].T[row, :].dot(R[i][:, col]) == 0)
+                constraint_binding2 = prog.AddConstraint(R[i][row, :].dot(R[i].T[:, col]) == 0)
                 
-            add_constraint_to_qcqp(f"R_ortho_{i}_{row}_{col}", constraint_binding)
+            add_constraint_to_qcqp(f"R_ortho1_{i}_{row}_{col}", constraint_binding1)
+            add_constraint_to_qcqp(f"R_ortho2_{i}_{row}_{col}", constraint_binding2)
 
-# Omega_i^T @ Omega_i == I_d
+# 4. SO(3) Constraint on Angular Velocity: Omega_i^T @ Omega_i == I_d and Omega_i @ Omega_i^T == I_d
 for i in range(N-1):
     for row in range(d):
         for col in range(d):
             if row == col:
                 # Diagonal entries
-                constraint_binding = prog.AddConstraint(Omega[i].T[row, :].dot(Omega[i][:, col]) == 1)
+                constraint_binding1 = prog.AddConstraint(Omega[i].T[row, :].dot(Omega[i][:, col]) == 1)
+                constraint_binding2 = prog.AddConstraint(Omega[i][row, :].dot(Omega[i].T[:, col]) == 1)
             else:
                 # Off-diagonal entries
-                constraint_binding = prog.AddConstraint(Omega[i].T[row, :].dot(Omega[i][:, col]) == 0)
+                constraint_binding1 = prog.AddConstraint(Omega[i].T[row, :].dot(Omega[i][:, col]) == 0)
+                constraint_binding2 = prog.AddConstraint(Omega[i][row, :].dot(Omega[i].T[:, col]) == 0)
 
-            add_constraint_to_qcqp(f"omega_ortho_{i}_{row}_{col}", constraint_binding)
+            add_constraint_to_qcqp(f"omega_ortho1_{i}_{row}_{col}", constraint_binding1)
+            add_constraint_to_qcqp(f"omega_ortho2_{i}_{row}_{col}", constraint_binding2)
+            
+# 5. Initial identity rotation:
+for row in range(d):
+    for col in range(d):
+        # Identity matrix has the following property:
+        # Product of any 2 diagonal elements == 1
+        constraint_binding = prog.AddConstraint(R[0][row,row]*R[0][col,col] == 1)
+        add_constraint_to_qcqp(f"R_initial_diag_{row}_{col}", constraint_binding)
+        
+        if row != col:
+            # Off-diagonal entries
+            constraint_binding = prog.AddConstraint(R[0][row,col]*R[0][col,row] == 0)
+            add_constraint_to_qcqp(f"R_initial_off_diag_{row}_{col}", constraint_binding)
+
+# 6: Initial 0 translation:
+for dim in range(d):
+    constraint_binding = prog.AddConstraint(t[0][dim] * t[0][dim] == 0)
+    
+    add_constraint_to_qcqp(f"t_initial_{row}_{col}", constraint_binding)
 
 
 # Cost Function
@@ -290,7 +313,7 @@ if result.is_success():
     for k in range(K):
         p_sol.append(result.GetSolution(p[k]))
     
-    visualize_results(N, K, t_sol, v_sol, R_sol, p_sol)
+    visualize_results(N, K, t_sol, v_sol, R_sol, p_sol, Omega_sol)
     
 else:
     print("solve failed.")
@@ -310,147 +333,12 @@ for i in range(len(Q_constraints)):
 
 prog_sdp = MathematicalProgram()
 
-
-
-
-# # Homogenize X; i.e. X = [x, 1]^T [x, 1]
-# # ⌈  X   x ⌉
-# # ⌊ x^T  1 ⌋
-# X = prog_sdp.NewSymmetricContinuousVariables(prog.num_vars() + 1, "X")
-# print(f"X shape: {np.shape(X)}")
-# X_flat = X.flatten()
-
-# labels = [var.get_name() for var in prog.decision_variables()]
-# DF = pd.DataFrame(Q_cost, index=labels, columns=labels)
-# DF.to_csv("drake_solver_Q_cost.csv")
-
-# # Homogenize cost matrix Q (add a row & column of zeros)
-# # ⌈  Q   0 ⌉
-# # ⌊ 0^T  0 ⌋
-# Q_cost = np.block([[0.5 * Q_cost, np.zeros((Q_cost.shape[0], 1))], [np.zeros((1, Q_cost.shape[1] + 1))]])  # Drake is faster if we flatten first, instead of using np.trace()
-
-# # Trace(QX) Cost
-# Q_cost_flat = Q_cost.flatten()
-# prog_sdp.AddLinearCost(Q_cost_flat @ X_flat)
-# # prog_sdp.AddLinearCost(np.trace(Q_cost @ X))
-
-# # Trace(QX) + b^T x + c = 0 Constraints
-# print(f"Number of constraints in SDP: {len(Q_constraints)}")
-# for i in range(len(Q_constraints)):
-#     # Build the b vector and c scalar into the Q matrix
-#     # ⌈    Q     1/2 b ⌉
-#     # ⌊ 1/2 b^T    c   ⌋    
-#     Q_constraint = np.block([
-#         [0.5 * Q_constraints[i],                0.5 * b_constraints[i][:, np.newaxis]],
-#         [0.5 * b_constraints[i][np.newaxis, :],                      c_constraints[i]]
-#     ])
-    
-#     # print(Q_constraint)
-    
-#     Q_constraint_flat = Q_constraint.flatten()
-#     prog_sdp.AddLinearEqualityConstraint(Q_constraint_flat @ X_flat == 0)  # Drake is faster if we flatten first, instead of using np.trace()
-#     # prog_sdp.AddLinearEqualityConstraint(np.trace(Q_constraint @ X) == 0)
-
-# # X ⪰ 0 Constraint
-# prog_sdp.AddPositiveSemidefiniteConstraint(X)
-
-
-
-
-
-# # Decision variables
-# x = prog_sdp.NewContinuousVariables(prog.num_vars(), "x")  # x is a vector
-# Y = prog_sdp.NewSymmetricContinuousVariables(prog.num_vars(), "Y")  # Y is a symmetric matrix
-
-# # Add objective: ⟨Q_cost, Y⟩ + 2 * b_cost.T @ x + c_cost
-# prog_sdp.AddLinearCost(np.trace(Q_cost @ Y))
-
-# # Add constraints
-# for i in range(len(Q_constraints)):
-#     Q_i = Q_constraints[i]
-#     b_i = b_constraints[i]
-#     c_i = c_constraints[i]
-
-#     # Constraint: ⟨Q_i, Y⟩ + 2 * b_i^T x + c_i == 0
-#     # prog_sdp.AddLinearEqualityConstraint(np.trace(Q_i @ Y) + 2 * b_i.dot(x) + c_i == 0)
-#     prog_sdp.AddLinearEqualityConstraint((Q_i.flatten() @ Y.flatten()) + 2 * b_i.dot(x) + c_i == 0)
-
-
-# # Positive semidefinite constraint using the Schur complement
-# # M = [Y  x]
-# #     [x'  1]
-# n = prog.num_vars()
-# M = prog_sdp.NewSymmetricContinuousVariables(n + 1, "M")
-# M[:n, :n] = Y
-# M[:n, n] = x
-# M[n, :n] = x
-# M[n, n] = 1
-# prog_sdp.AddPositiveSemidefiniteConstraint(M)
-
-# # Solve the problem
-# result = Solve(prog_sdp)
-
-
-
-
-
-
-# sdp_solver_options = SolverOptions()
-# mosek_solver = MosekSolver()
-# if not mosek_solver.available():
-#     print("WARNING: MOSEK unavailable.")
-# print("Beginning SDP Solve.")
-# start = time.time()
-# result = mosek_solver.Solve(prog_sdp, solver_options=sdp_solver_options)
-# print(f"SDP Solve Time: {time.time() - start}")
-# print(f"Solved using: {result.get_solver_id().name()}")
-
-# if result.is_success():
-#     X_sol = result.GetSolution(X)
-#     print(f"Rank of X: {np.linalg.matrix_rank(X_sol, rtol=1e-1, hermitian=True)}")
-    
-#     # Save X as csv
-#     DF = pd.DataFrame(X_sol) 
-#     DF.to_csv("drake_solver.csv")
-    
-#     # Reconstruct x
-#     U, S, Vt = np.linalg.svd(X_sol, hermitian=True)
-#     x_sol = U[:, 0] * np.sqrt(S[0])
-#     if x_sol[0] < 0:
-#         x_sol = -x_sol
-        
-#     t_sol = []
-#     v_sol = []
-#     R_sol = []
-#     Omega_sol = []
-#     p_sol = []
-#     for i in range(N):
-#         t_sol.append(x_sol[d*i : d*(i+1)])
-#         R_sol.append(x_sol[d*N + d*(N-1) + d*K + d*d*i : d*N + d*(N-1) + d*K + d*d*(i+1)].reshape((3,3)))
-#     for i in range(N-1):
-#         v_sol.append(x_sol[d*N + d*i : d*N + d*(i+1)])
-#         Omega_sol.append(x_sol[d*N + d*(N-1) + d*K + d*d*N + d*d*i : d*N + d*(N-1) + d*K + d*d*N + d*d*(i+1)].reshape((3,3)))
-#     for k in range(K):
-#         p_sol.append(x_sol[d*N + d*(N-1) + d*k : d*N + d*(N-1) + d*(k+1)])
-    
-#     visualize_results(N, K, t_sol, v_sol, R_sol, p_sol)
-    
-# else:
-#     print("solve failed.")
-#     print(f"{result.get_solution_result()}")
-#     print(f"{result.GetInfeasibleConstraintNames(prog_sdp)}")
-#     for constraint_binding in result.GetInfeasibleConstraints(prog_sdp):
-#         print(f"{constraint_binding.variables()}")
-
-
-
-
-
-X = prog_sdp.NewSymmetricContinuousVariables(prog.num_vars() - d*(N-1), "X")  # X is a symmetric matrix
+X = prog_sdp.NewSymmetricContinuousVariables(prog.num_vars() - d*(N-1) + 1, "X")  # X is a symmetric matrix
 v = prog_sdp.NewContinuousVariables(d*(N-1), "v")  # v is a vector
 
-# Add objective 
-prog_sdp.AddCost(Q_cost.flatten() @ X.flatten() + v.T @ P_cost @ v)
+# Add objective
+Q_cost_homogenous = np.block([[Q_cost, np.zeros((Q_cost.shape[0], 1))], [np.zeros((1, Q_cost.shape[1] + 1))]])
+prog_sdp.AddCost(Q_cost_homogenous.flatten() @ X.flatten() + v.T @ P_cost @ v)
 
 # Add constraints
 for i in range(len(Q_constraints)):
@@ -458,8 +346,80 @@ for i in range(len(Q_constraints)):
     b_i = b_constraints[i]
     c_i = c_constraints[i]
     
-    prog_sdp.AddConstraint(0.5 * Q_i.flatten() @ X.flatten() + b_i.T @ v + c_i == 0)
+    Q_i_homogenous = np.block([[Q_i, np.zeros((Q_i.shape[0], 1))], [np.zeros((1, Q_i.shape[1] + 1))]])
+    prog_sdp.AddConstraint(0.5 * Q_i_homogenous.flatten() @ X.flatten() + b_i.T @ v + c_i == 0)
     
+            
+# Tighten initial identity rotation constraint by setting everything in the rows and columns corresponding to non-diagonal components of R_0 to 0
+R_0_idx = prog.FindDecisionVariableIndex(R[0][0,0])
+for dim in range(R_0_idx, R_0_idx + d*d):  # Iterate through components of R_0
+    for j in range(np.shape(X)[0]):
+        Q = np.zeros((np.shape(X)))
+        if dim-R_0_idx not in {0, 4, 8} and j-R_0_idx not in {0, 4, 8}:  # Any component of X in the R[0] rows/columns that doesn't contain a diagonal component of R[0] gets set to 0
+            Q[dim,j] = Q[j,dim] = 0.5
+            prog_sdp.AddConstraint(Q.flatten() @ X.flatten() == 0)
+
+# Tighten initial 0 translation constraint by setting everything in t_0 rows and columns to 0
+for dim in range(d):
+    for j in range(np.shape(X)[0]):
+        Q = np.zeros((np.shape(X)))
+        Q[dim, j] = Q[j, dim] = 0.5
+        prog_sdp.AddConstraint(Q.flatten() @ X.flatten() == 0)
+        
+    
+# Add Homogenous Constraints
+Q = np.zeros((np.shape(X)))
+Q[-1,-1] = 1
+prog_sdp.AddConstraint(Q.flatten() @ X.flatten() == 1)
+
+# Anchor the the initial rotation and translation for the homogenous odometry constraints
+for dim in range(R_0_idx, R_0_idx + d*d):  # Enforce first rotation as identity rotation
+    Q = np.zeros((np.shape(X)))
+    Q[-1, dim] = 0.5
+    Q[dim, -1] = 0.5
+    if dim-R_0_idx in {0, 4, 8}:
+        prog_sdp.AddConstraint(Q.flatten() @ X.flatten() == 1)
+    else:
+        prog_sdp.AddConstraint(Q.flatten() @ X.flatten() == 0)
+
+for i in range(d):  # Enforce first translation as 0
+    Q = np.zeros((np.shape(X)))
+    Q[-1, i] = 0.5
+    Q[i, -1] = 0.5
+    prog_sdp.AddConstraint(Q.flatten() @ X.flatten() == 0)
+    
+# Add additional linear-quadratic-mixed rotational odometry constraints using the homogenous variables
+Omega_0_idx = prog.FindDecisionVariableIndex(Omega[0][0,0])
+for t in range(N-1):
+    # R_{i+1} = R_i @ Omega_i  (What Toya has)
+    for j in range(d):
+        for i in range(d):
+            Q = np.zeros((np.shape(X)))
+            offsets = [(0, 0), (1, 3), (2, 6)] # Offset for R_t, Omega_t
+            for offset_r, offset_o in offsets:
+                Q[R_0_idx+9*t+offset_r+3*j,Omega_0_idx+9*t+offset_o+i] = 0.5
+                Q[Omega_0_idx+9*t+offset_o+i, R_0_idx+9*t+offset_r+3*j] = 0.5
+            Q[-1, R_0_idx+9+9*t+3*j+i] = -0.5
+            Q[R_0_idx+9+9*t+3*j+i, -1] = -0.5
+            
+            prog_sdp.AddConstraint(Q.flatten() @ X.flatten() == 0)
+
+Omega_0_idx = prog.FindDecisionVariableIndex(Omega[0][0,0])
+for t in range(N-1):
+    # R_{i+1} @ Omega_i^T = R_i
+    for j in range(d):
+        for i in range(d):
+            Q = np.zeros((np.shape(X)))
+            offsets = [(0, 0), (1, 3), (2, 6)] # Offset for R_t, Omega_t
+            for offset_r, offset_o in offsets:
+                Q[R_0_idx+9*(t+1)+offset_r+3*j,Omega_0_idx+9*t+offset_o+i] = 0.5
+                Q[Omega_0_idx+9*t+offset_o+i, R_0_idx+9*(t+1)+offset_r+3*j] = 0.5
+            Q[-1, R_0_idx+9*t+3*j+i] = -0.5
+            Q[R_0_idx+9*t+3*j+i, -1] = -0.5
+            
+            prog_sdp.AddConstraint(Q.flatten() @ X.flatten() == 0)
+
+# X ⪰ 0 Constraint
 prog_sdp.AddPositiveSemidefiniteConstraint(X)
 
 
@@ -467,6 +427,21 @@ sdp_solver_options = SolverOptions()
 mosek_solver = MosekSolver()
 if not mosek_solver.available():
     print("WARNING: MOSEK unavailable.")
+
+# Set initial guess for SDP
+x_guess = np.array(sum(t_guess, []) +
+                    sum(p_guess, []) +
+                    [val for R in R_guess for val in R.T.flatten()] +
+                    [val for Omega in Omega_guess for val in Omega.T.flatten()] + 
+                    [1]).reshape((np.shape(X)[0], 1))
+X_guess = x_guess @ x_guess.T
+v_guess = sum(v_guess, [])
+for i in range(X.shape[0]):
+    for j in range(X.shape[1]):
+        prog_sdp.SetInitialGuess(X[i, j], X_guess[i, j])
+for i in range(v.shape[0]):
+    prog_sdp.SetInitialGuess(v[i], v_guess[i])
+    
 print("Beginning SDP Solve.")
 start = time.time()
 result = mosek_solver.Solve(prog_sdp, solver_options=sdp_solver_options)
@@ -480,16 +455,16 @@ if result.is_success():
     
     # Save X as csv
     X_sol[np.abs(X_sol) < 1e-3] = 0
-    DF = pd.DataFrame(X_sol) 
+    labels = [var.get_name() for var in prog.decision_variables()][:X.shape[0]-1] + ["_"]
+    DF = pd.DataFrame(X_sol, index=labels, columns=labels)
     DF.to_csv("drake_solver.csv")
     
     # Reconstruct x
-    U, S, _ = np.linalg.svd(X_sol, hermitian=True)
+    U, S, _ = np.linalg.svd(X_sol[:-1,:-1], hermitian=True)  # ignore homogenous parts of X
     x_sol = U[:, 0] * np.sqrt(S[0])
-    if x_sol[d*N + d*K] < 0:
+    if x_sol[R_0_idx] < 0:
         x_sol = -x_sol
-
-    print(x_sol)
+    print(f"Singular Values: {S}")
         
     t_sol = []
     v_sol = []
@@ -503,9 +478,9 @@ if result.is_success():
         v_sol.append(v_sol_arr[d*i : d*(i+1)])
         Omega_sol.append(x_sol[d*N + d*K + d*d*N + d*d*i : d*N + d*K + d*d*N + d*d*(i+1)].reshape((3,3)))
     for k in range(K):
-        p_sol.append(x_sol[d*N + d*(N-1) + d*k : d*N + d*(N-1) + d*(k+1)])
+        p_sol.append(x_sol[d*N + d*k : d*N + d*(k+1)])
     
-    visualize_results(N, K, t_sol, v_sol, R_sol, p_sol)
+    visualize_results(N, K, t_sol, v_sol, R_sol, p_sol, Omega_sol)
     
 else:
     print("solve failed.")
@@ -576,7 +551,7 @@ else:
     
 #     v_sol = [v_sol[i: i + 3] for i in range(0, (N-1) * 3, 3)]
     
-#     visualize_results(N, K, t_sol, v_sol, R_sol, p_sol)
+#     visualize_results(N, K, t_sol, v_sol, R_sol, p_sol, Omega_sol)
     
 # else:
 #     print("solve failed.")

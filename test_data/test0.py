@@ -1,14 +1,14 @@
 import numpy as np
 
 # Parameters
-N = 2  # Num time steps
-K = 1   # Num landmarks
+N = 3  # Num time steps
+K = 3   # Num landmarks
 d = 3   # dimension of space (3D)
 
 # Measurement data: maps landmark to {timestamp: measurement} dicts
-# NOTE: IT'S VERY IMPORTANT THAT NONE OF THESE VALUES ARE PRECISELY ZERO, OR DRAKE WILL AUTO-REMOVE THE CORRESPONDING VARIABLE, MESSING UP THE CONSTRUCTION OF THE Q MATRIX
-# y_bar = {0: {0: (1.01,2.01,1e-10), 1: (0.99,1.00,1e-10)}}
-y_bar = {0: {0: (1,2,1e-10), 1: (1,1,1e-10)}}
+y_bar = {0: {0: (1,2,1), 1: (1,1,1)},
+         1: {0: (-1,3,1), 1: (-1,2,1), 2:(-1,1,1)},
+         2: {1: (0,3,-1), 2: (0,2,-1)}}
 
 # Covariances
 Sigma_p = np.linalg.inv(np.eye(d))  # Covariance matrix for position
@@ -21,8 +21,8 @@ def make_rot_mat(theta):
                      [0,              0,             1]])
 
 # Initial guesses:
-t_guess = [[0.01,-0.01,0], [-0.02,0.99,0]]
-R_guess = [make_rot_mat(0.01), make_rot_mat(0.0)]
+t_guess = [[0.01,-0.01,0], [-0.02,0.99,0], [0.01,2.01,0]]
+R_guess = [make_rot_mat(0.01), make_rot_mat(0.0), make_rot_mat(0.0)]
 v_guess = [[0,1.0,0]]*(N-1)
 Omega_guess = [make_rot_mat(0)]*(N-1)
-p_guess = [[1.01,2.01,0]]
+p_guess = [[1.01,2.01,1.02], [-1.01,3.01,1.04], [0.01,3.99,-0.97]]

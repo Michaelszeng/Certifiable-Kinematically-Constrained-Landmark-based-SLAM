@@ -77,3 +77,66 @@ def print_results(ang_vel, ang_pos, landmarks, lin_vel, lin_pos, rank, S):
     print("Rank of X is", rank)
     print()
 
+def generate_python_file(file_path, measurements, true_lin_pos, true_lin_vel, true_landmarks, true_ang_pos, true_ang_vel):
+    with open(file_path, 'w') as f:
+        f.write("import numpy as np\n\n")
+        f.write("d = 3   # dimension of space (3D)\n\n")
+
+        # Write measurements
+        f.write("# Measurement data: maps landmark to {timestamp: measurement} dicts\n")
+        f.write("y_bar = {\n")
+        for lm, lm_measurements in measurements.items():
+            f.write(f"    {lm}: {{\n")
+            for t, measurement in lm_measurements.items():
+                measurement_str = np.array2string(measurement.flatten(), separator=',')
+                f.write(f"        {t}: np.array([{measurement_str}]).T,\n")
+            f.write("    },\n")
+        f.write("}\n\n")
+
+        # Write N and K
+        f.write("N = 1\n")
+        f.write("for lm_meas in y_bar.values():\n")
+        f.write("    for timestep in lm_meas.keys():\n")
+        f.write("        N = max(N, timestep + 1)\n")
+        f.write("K = len(y_bar)\n\n")
+
+        # Write covariance matrices
+        f.write("# Covariances\n")
+        f.write("Sigma_p = np.linalg.inv(4*np.eye(d))  # Covariance matrix for position\n")
+        f.write("Sigma_v = np.linalg.inv(np.eye(d))  # Covariance matrix for velocity\n")
+        f.write("Sigma_omega = np.linalg.inv(np.eye(d**2))  # Covariance matrix for angular velocity\n\n")
+
+        # Write helper function for rotation matrix
+        f.write("def make_rot_mat(theta):\n")
+        f.write("    return np.array([[np.cos(theta), -np.sin(theta), 0],\n")
+        f.write("                     [np.sin(theta),  np.cos(theta), 0],\n")
+        f.write("                     [0,              0,             1]])\n\n")
+
+        # Write initial guesses
+        f.write("# Initial guesses:\n")
+        f.write("t_guess = [\n")
+        for pos in true_lin_pos:
+            f.write(f"    {pos.tolist()},\n")
+        f.write("]\n")
+
+        f.write("R_guess = [\n")
+        for ang in true_ang_pos:
+            f.write(f"    np.array({ang.tolist()}),\n")
+        f.write("]\n")
+
+        # Write linear velocity guess
+        f.write("v_guess = [\n")
+        for _ in range(len(true_lin_pos) - 1):  # N - 1
+            f.write(f"    {true_lin_vel.tolist()},\n")
+        f.write("]\n")
+
+        # Write angular velocity guess
+        f.write("Omega_guess = [\n")
+        for _ in range(len(true_ang_pos) - 1):  # N - 1
+            f.write(f"    np.array({true_ang_vel.tolist()}),\n")
+        f.write("]\n")
+
+        f.write("p_guess = [\n")
+        for lm in true_landmarks:
+            f.write(f"    {lm.tolist()},\n")
+        f.write("]\n")
