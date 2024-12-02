@@ -22,10 +22,32 @@ def visualize_results(N, K, t, v, R, p, Omega):
             _2d = False
             break
         
-    if _2d: 
-        visualize_results_2D(N, K, t, v, R, p, Omega)
+    # Convert np arrays to lists if needed
+    if isinstance(t, np.ndarray):
+        t_new = [element for element in t]
     else:
-        visualize_results_3D(N, K, t, v, R, p, Omega)
+        t_new = t
+    if isinstance(v, np.ndarray):
+        v_new = [element for element in v]
+    else:
+        v_new = v
+    if isinstance(R, np.ndarray):
+        R_new = [element for element in R]
+    else:
+        R_new = R
+    if isinstance(p, np.ndarray):
+        p_new = [element for element in p]
+    else:
+        p_new = p
+    if isinstance(Omega, np.ndarray):
+        Omega_new = [element for element in Omega]
+    else:
+        Omega_new = Omega
+        
+    if _2d: 
+        visualize_results_2D(N, K, t_new, v_new, R_new, p_new, Omega_new)
+    else:
+        visualize_results_3D(N, K, t_new, v_new, R_new, p_new, Omega_new)
         
 
 def visualize_results_2D(N, K, t, v, R, p, Omega):
@@ -45,12 +67,12 @@ def visualize_results_2D(N, K, t, v, R, p, Omega):
         Args:
             ax: Matplotlib axis
             position: 2D position of the robot (x, y)
-            rotation_matrix: 2x2 rotation matrix
+            rotation_matrix: rotation matrix
             size: Size of the triangle
             color: Color of the triangle
         """
         # Define a basic triangle pointing up (relative to local frame)
-        triangle = np.array([[0, size], [size/2, -size/2], [-size/2, -size/2]])
+        triangle = np.array([[size, 0], [-size/2, size/2], [-size/2, -size/2]])  # X is forward
         # Rotate and translate triangle
         rotated_triangle = (rotation_matrix @ triangle.T).T + position
         polygon = Polygon(rotated_triangle, closed=True, color=color)
@@ -116,10 +138,10 @@ def visualize_results_3D(N, K, t, v, R, p, Omega):
         """
         # Define a basic triangle pointing up (relative to local frame) in 3D
         triangle = np.array([
-            [0, size, 0], 
-            [size/2, -size/2, 0], 
+            [size, 0, 0], 
+            [-size/2, size/2, 0], 
             [-size/2, -size/2, 0]
-        ])
+        ])  # X is forward
         # Rotate and translate triangle
         rotated_triangle = (rotation_matrix @ triangle.T).T + position
         # Create a 3D polygon
