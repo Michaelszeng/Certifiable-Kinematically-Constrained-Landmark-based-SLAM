@@ -5,7 +5,7 @@ from solver_utils import generate_ground_truth, generate_measurements, print_gro
 from visualization_utils import visualize_results_3d
 
 true_lin_vel = np.array([2, 0, 0])
-true_rpy_vel = np.array([0, 0, 30])
+true_rpy_vel = np.array([0, 0, 0])
 
 num_landmarks = 5
 num_timesteps = 5

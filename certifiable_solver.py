@@ -140,7 +140,7 @@ def certifiable_solver(measurements, tol=1e-6):
                 offsets = [(-9, 0), (-8, 3), (-7, 6)]       # Offset for R_t, Omega_t
                 next_offsets = [(9, 9), (10, 10), (11, 11)] # Offset for R_{t+2}, Omega_{t+1}
                 for offset_r, offset_o in offsets:
-                    A[9*(N+t)+offset_r+3*j,9*t+offset_o+i] = 0.5
+                    A[9*(N+t)+offset_r+3*j, 9*t+offset_o+i] = 0.5
                     A[9*t+offset_o+i, 9*(N+t)+offset_r+3*j] = 0.5
                 for offset_r, offset_o in next_offsets:
                     A[9*(N+t)+offset_r+3*j, 9*t+offset_o+3*i] = -0.5
@@ -167,7 +167,7 @@ def certifiable_solver(measurements, tol=1e-6):
                 A = np.zeros((dim_x, dim_x))
                 offsets = [(-9, 0), (-8, 3), (-7, 6)] # Offset for R_t, Omega_t
                 for offset_r, offset_o in offsets:
-                    A[9*(N+t)+offset_r+3*j,9*t+offset_o+i] = 0.5
+                    A[9*(N+t)+offset_r+3*j, 9*t+offset_o+i] = 0.5
                     A[9*t+offset_o+i, 9*(N+t)+offset_r+3*j] = 0.5
                 A[-1, 9*(N+t)+3*j+i] = -0.5
                 A[9*(N+t)+3*j+i, -1] = -0.5
@@ -182,7 +182,7 @@ def certifiable_solver(measurements, tol=1e-6):
     DF.to_csv("results.csv")
 
     # Reconstruct x
-    U, S, _ = np.linalg.svd(X.value, hermitian=True)
+    U, S, _ = np.linalg.svd(X.value[:-1,:-1], hermitian=True)
     x = U[:, 0] * np.sqrt(S[0])
     if x[9*N-9] < 0:
         x = -x
