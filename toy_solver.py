@@ -19,10 +19,12 @@ measurements = {
     2: {
         0: np.array([[9,7,-4]]).T,
         1: np.array([[5,7,-4]]).T,
+        2: np.array([[1,7,-4]]).T,
         3: np.array([[-3,7,-4]]).T,
     },
     3: {
         0: np.array([[1,2,2]]).T,
+        1: np.array([[-3,2,2]]).T,
         2: np.array([[-7,2,2]]).T,
         3: np.array([[-11,2,2]]).T,
     },
@@ -30,8 +32,9 @@ measurements = {
         0: np.array([[0,4,1]]).T,
         1: np.array([[-4,4,1]]).T,
         2: np.array([[-8,4,1]]).T,
+        3: np.array([[-12,4,1]]).T,
     },
 }
 
-ang_vel, ang_pos, landmarks, lin_vel, lin_pos, rank, S = certifiable_solver(measurements, tol=0.01)
+ang_vel, ang_pos, landmarks, lin_vel, lin_pos, rank, S = certifiable_solver(measurements)
 print_results(ang_vel, ang_pos, landmarks, lin_vel, lin_pos, rank, S)

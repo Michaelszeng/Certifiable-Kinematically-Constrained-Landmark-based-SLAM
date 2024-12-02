@@ -11,7 +11,7 @@ def generate_ground_truth(num_timesteps, true_lin_vel, true_ang_vel):
 
     return lin_pos, ang_pos
 
-def generate_measurements(true_lin_pos, true_ang_pos, true_landmarks):
+def generate_measurements(true_lin_pos, true_ang_pos, true_landmarks, noise=0, dropout=0):
     measurements = {i : dict() for i in range(len(true_landmarks))}
     for t, (lin, ang) in enumerate(zip(true_lin_pos, true_ang_pos)):
         pose = np.zeros((4, 4))
@@ -19,7 +19,9 @@ def generate_measurements(true_lin_pos, true_ang_pos, true_landmarks):
         pose[:3, 3] = -ang.T @ lin
         pose[3, 3] = 1
         for i, lm in enumerate(true_landmarks):
-            measurements[i][t] = (pose @ np.hstack((lm, 1)))[:3].reshape((3, 1))
+            if np.random.rand() >= dropout:
+                true_meas = (pose @ np.hstack((lm, 1)))[:3]
+                measurements[i][t] = (true_meas + np.random.normal(0, noise, 3)).reshape((3, 1))
     return measurements
 
 def print_ground_truth(ang_vel, ang_pos, landmarks, lin_vel, lin_pos):
