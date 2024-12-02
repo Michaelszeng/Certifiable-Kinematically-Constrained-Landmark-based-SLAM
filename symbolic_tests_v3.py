@@ -457,7 +457,7 @@ if result.is_success():
     X_sol[np.abs(X_sol) < 1e-3] = 0
     labels = [var.get_name() for var in prog.decision_variables()][:X.shape[0]-1] + ["_"]
     DF = pd.DataFrame(X_sol, index=labels, columns=labels)
-    DF.to_csv("drake_solver.csv")
+    DF.to_csv("output_files/drake_solver.csv")
     
     # Reconstruct x
     U, S, _ = np.linalg.svd(X_sol[:-1,:-1], hermitian=True)  # ignore homogenous parts of X

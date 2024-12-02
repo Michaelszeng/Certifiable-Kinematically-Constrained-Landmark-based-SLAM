@@ -16,7 +16,7 @@ from visualization_utils import *
 current_folder = os.path.dirname(os.path.abspath(__file__))
 test_data_path = os.path.join(current_folder, "test_data")
 sys.path.append(test_data_path)
-from test4 import *
+from test1 import *
 
 np.set_printoptions(edgeitems=30, linewidth=270, precision=4, suppress=True)
 
@@ -472,7 +472,7 @@ if result.is_success():
     X_sol[np.abs(X_sol) < 1e-3] = 0
     labels = [var.get_name() for var in prog.decision_variables()][:X.shape[0]-1] + ["_"]
     DF = pd.DataFrame(X_sol, index=labels, columns=labels)
-    DF.to_csv("drake_solver.csv")
+    DF.to_csv("output_files/sdrake_solver.csv")
     
     # Reconstruct x
     U, S, _ = np.linalg.svd(X_sol[:-1,:-1], hermitian=True)  # ignore homogenous parts of X

@@ -79,7 +79,7 @@ def print_results(ang_vel, ang_pos, landmarks, lin_vel, lin_pos, rank, S):
     print("Rank of X is", rank)
     print()
 
-def generate_python_file(file_path, measurements, true_lin_pos, true_lin_vel, true_landmarks, true_ang_pos, true_ang_vel):
+def generate_test_file(file_path, measurements, true_lin_pos, true_lin_vel, true_landmarks, true_ang_pos, true_ang_vel):
     with open(file_path, 'w') as f:
         f.write("import numpy as np\n\n")
         f.write("d = 3   # dimension of space (3D)\n\n")

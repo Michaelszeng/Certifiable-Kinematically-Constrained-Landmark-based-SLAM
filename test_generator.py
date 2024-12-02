@@ -22,4 +22,4 @@ print_results(calc_ang_vel, calc_ang_pos, calc_landmarks, calc_lin_vel, calc_lin
 visualize_results_3D_simple(calc_landmarks, calc_lin_pos)
 
 # Generate a new `testX.py` file to save this test case
-# generate_python_file("test_data/test4.py", measurements, true_lin_pos, true_lin_vel, true_landmarks, true_ang_pos, true_ang_vel)
+# generate_test_file("test_data/test4.py", measurements, true_lin_pos, true_lin_vel, true_landmarks, true_ang_pos, true_ang_vel)
