@@ -178,7 +178,8 @@ def visualize_results_3D(N, K, t, v, R, p, Omega):
     ax.legend()
     plt.show()
 
-def visualize_results_3d(calc_landmarks, calc_lin_pos):
+
+def visualize_results_3D_simple(calc_landmarks, calc_lin_pos):
     # Create 3D plot
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
