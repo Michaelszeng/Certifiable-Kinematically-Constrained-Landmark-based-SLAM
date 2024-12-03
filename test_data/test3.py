@@ -3,6 +3,7 @@ import numpy as np
 d = 3   # dimension of space (3D)
 
 # Measurement data: maps landmark to {timestamp: measurement} dicts
+
 y_bar = {
     # Landmark number
     0: {

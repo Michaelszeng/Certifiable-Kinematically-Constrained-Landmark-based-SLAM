@@ -38,7 +38,7 @@ prog = MathematicalProgram()
 t = [prog.NewContinuousVariables(d, f"t_{i}") for i in range(N)]                # Positions t_i
 p = [prog.NewContinuousVariables(d, f"p_{k}") for k in range(K)]                # Landmark positions p_k
 R = [prog.NewContinuousVariables(d, d, f"R_{i}") for i in range(N)]             # Rotations R_i
-Omega = [prog.NewContinuousVariables(d, d, f"Omega_{i}") for i in range(N-1)]     # Angular velocities Ω_i
+Omega = [prog.NewContinuousVariables(d, d, f"Ω_{i}") for i in range(N-1)]     # Angular velocities Ω_i
 
 v = [prog.NewContinuousVariables(d, f"v_{i}") for i in range(N-1)]                # Velocities v_i
 
@@ -338,6 +338,7 @@ v = prog_sdp.NewContinuousVariables(d*(N-1), "v")  # v is a vector
 
 # Add objective
 Q_cost_homogenous = np.block([[Q_cost, np.zeros((Q_cost.shape[0], 1))], [np.zeros((1, Q_cost.shape[1] + 1))]])
+Q_cost_homogenous /= np.linalg.norm(Q_cost_homogenous)  # Normalization
 prog_sdp.AddCost(Q_cost_homogenous.flatten() @ X.flatten() + v.T @ P_cost @ v)
 
 # Add constraints
@@ -392,35 +393,36 @@ for i in range(d):  # Enforce first translation as 0
 Omega_0_idx = prog.FindDecisionVariableIndex(Omega[0][0,0])
 for t in range(N-1):
     # R_{i+1} = R_i @ Omega_i  (What Toya has)
-    for j in range(d):
-        for i in range(d):
+    for i in range(d):
+        for j in range(d):
             Q = np.zeros((np.shape(X)))
-            offsets = [(0, 0), (1, 3), (2, 6)] # Offset for R_t, Omega_t
+            offsets = [(0, 0), (3, 1), (6, 2)] # Offset for R_t, Omega_t
             for offset_r, offset_o in offsets:
-                Q[R_0_idx+9*t+offset_r+3*j,Omega_0_idx+9*t+offset_o+i] = 0.5
-                Q[Omega_0_idx+9*t+offset_o+i, R_0_idx+9*t+offset_r+3*j] = 0.5
-            Q[-1, R_0_idx+9+9*t+3*j+i] = -0.5
-            Q[R_0_idx+9+9*t+3*j+i, -1] = -0.5
+                Q[R_0_idx+9*t+offset_r+j,Omega_0_idx+9*t+offset_o+3*i] = 0.5
+                Q[Omega_0_idx+9*t+offset_o+3*i, R_0_idx+9*t+offset_r+j] = 0.5
+            Q[-1, R_0_idx+9+9*t+j+3*i] = -0.5
+            Q[R_0_idx+9+9*t+j+3*i, -1] = -0.5
             
             prog_sdp.AddConstraint(Q.flatten() @ X.flatten() == 0)
 
-Omega_0_idx = prog.FindDecisionVariableIndex(Omega[0][0,0])
-for t in range(N-1):
-    # R_{i+1} @ Omega_i^T = R_i
-    for j in range(d):
-        for i in range(d):
-            Q = np.zeros((np.shape(X)))
-            offsets = [(0, 0), (1, 3), (2, 6)] # Offset for R_t, Omega_t
-            for offset_r, offset_o in offsets:
-                Q[R_0_idx+9*(t+1)+offset_r+3*j,Omega_0_idx+9*t+offset_o+i] = 0.5
-                Q[Omega_0_idx+9*t+offset_o+i, R_0_idx+9*(t+1)+offset_r+3*j] = 0.5
-            Q[-1, R_0_idx+9*t+3*j+i] = -0.5
-            Q[R_0_idx+9*t+3*j+i, -1] = -0.5
+# Omega_0_idx = prog.FindDecisionVariableIndex(Omega[0][0,0])
+# for t in range(N-1):
+#     # R_{i+1} @ Omega_i^T = R_i
+#     for i in range(d):
+#         for j in range(d):
+#             Q = np.zeros((np.shape(X)))
+#             offsets = [(0, 0), (3, 1), (6, 2)] # Offset for R_t, Omega_t
+#             for offset_r, offset_o in offsets:
+#                 Q[R_0_idx+9*(t+1)+offset_r+j,Omega_0_idx+9*t+offset_o+3*i] = 0.5
+#                 Q[Omega_0_idx+9*t+offset_o+3*i, R_0_idx+9*(t+1)+offset_r+j] = 0.5
+#             Q[-1, R_0_idx+9*t+j+3*i] = -0.5
+#             Q[R_0_idx+9*t+j+3*i, -1] = -0.5
             
-            prog_sdp.AddConstraint(Q.flatten() @ X.flatten() == 0)
+#             prog_sdp.AddConstraint(Q.flatten() @ X.flatten() == 0)
 
 # X ⪰ 0 Constraint
-prog_sdp.AddPositiveSemidefiniteConstraint(X)
+eps = 1e-6  # For regularization
+prog_sdp.AddPositiveSemidefiniteConstraint(X + eps*np.eye(X.shape[0]))
 
 
 sdp_solver_options = SolverOptions()
@@ -465,7 +467,7 @@ if result.is_success():
     if x_sol[R_0_idx] < 0:
         x_sol = -x_sol
     print(f"Singular Values: {S}")
-        
+    
     t_sol = []
     v_sol = []
     R_sol = []

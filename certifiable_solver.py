@@ -177,15 +177,16 @@ def certifiable_solver(measurements, tol=1e-6):
     prob = cp.Problem(cp.Minimize(cp.trace(Q @ X) + cp.quad_form(v, P)), constraints)
     prob.solve(solver=cp.MOSEK)
 
-    # Save results
-    DF = pd.DataFrame(X.value) 
-    DF.to_csv("results.csv")
-
     # Reconstruct x
     U, S, _ = np.linalg.svd(X.value[:-1,:-1], hermitian=True)
     x = U[:, 0] * np.sqrt(S[0])
     if x[9*N-9] < 0:
         x = -x
+        
+    # Save results
+    X.value[np.abs(X.value) < 1e-3] = 0
+    DF = pd.DataFrame(X.value)
+    DF.to_csv("results.csv")
 
     # Retrieve Omega, R, p, t
     lin_vel = v.value.reshape((N-1), 3)

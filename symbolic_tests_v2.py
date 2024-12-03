@@ -16,7 +16,7 @@ from visualization_utils import *
 current_folder = os.path.dirname(os.path.abspath(__file__))
 test_data_path = os.path.join(current_folder, "test_data")
 sys.path.append(test_data_path)
-from test1 import *
+from test4 import *
 
 np.set_printoptions(edgeitems=30, linewidth=270, precision=4, suppress=True)
 
@@ -37,7 +37,7 @@ t = [prog.NewContinuousVariables(d, f"t_{i}") for i in range(N)]                
 v = [prog.NewContinuousVariables(d, f"v_{i}") for i in range(N-1)]                # Velocities v_i
 p = [prog.NewContinuousVariables(d, f"p_{k}") for k in range(K)]                # Landmark positions p_k
 R = [prog.NewContinuousVariables(d, d, f"R_{i}") for i in range(N)]             # Rotations R_i
-Omega = [prog.NewContinuousVariables(d, d, f"Omega_{i}") for i in range(N-1)]     # Angular velocities Ω_i
+Omega = [prog.NewContinuousVariables(d, d, f"Ω_{i}") for i in range(N-1)]     # Angular velocities Ω_i
 
 
 def add_constraint_to_qcqp(name, constraint_binding):
@@ -152,14 +152,14 @@ for i in range(N - 1):
 
             add_constraint_to_qcqp(f"R_odom_{i}_{row}_{col}", constraint_binding)
             
-            # LINEAR R_i, QUDRATIC R_{i+1}, Omega_i: R_{i+1} @ Omega_i^T = R_i
-            # Compute the (row, col) element of the matrix multiplication R_{i+1} @ Omega_i^T
-            rotation_element = 0
-            for j in range(d):
-                rotation_element += R[i+1][row, j] * Omega[i].T[j, col]
-            constraint_binding = prog.AddConstraint(rotation_element == R[i][row, col])
+            # # LINEAR R_i, QUDRATIC R_{i+1}, Omega_i: R_{i+1} @ Omega_i^T = R_i
+            # # Compute the (row, col) element of the matrix multiplication R_{i+1} @ Omega_i^T
+            # rotation_element = 0
+            # for j in range(d):
+            #     rotation_element += R[i+1][row, j] * Omega[i].T[j, col]
+            # constraint_binding = prog.AddConstraint(rotation_element == R[i][row, col])
 
-            add_constraint_to_qcqp(f"R_odom_rotated_{i}_{row}_{col}", constraint_binding)
+            # add_constraint_to_qcqp(f"R_odom_rotated_{i}_{row}_{col}", constraint_binding)
             
     if i < N - 2:
         for row in range(d):
@@ -405,36 +405,36 @@ for i in range(d):  # Enforce first translation as 0
     Q[i, -1] = 0.5
     prog_sdp.AddConstraint(Q.flatten() @ X.flatten() == 0)
     
-# Add additional linear-quadratic-mixed rotational odometry constraints using the homogenous variables
-Omega_0_idx = prog.FindDecisionVariableIndex(Omega[0][0,0])
-for t in range(N-1):
-    # R_{i+1} @ Omega_i^T = R_i
-    for j in range(d):
-        for i in range(d):
-            Q = np.zeros((np.shape(X)))
-            offsets = [(0, 0), (1, 3), (2, 6)] # Offset for R_t, Omega_t
-            for offset_r, offset_o in offsets:
-                Q[R_0_idx+9*t+offset_r+3*j,Omega_0_idx+9*t+offset_o+i] = 0.5
-                Q[Omega_0_idx+9*t+offset_o+i, R_0_idx+9*t+offset_r+3*j] = 0.5
-            Q[-1, R_0_idx+9+9*t+3*j+i] = -0.5
-            Q[R_0_idx+9+9*t+3*j+i, -1] = -0.5
+# # Add additional linear-quadratic-mixed rotational odometry constraints using the homogenous variables
+# Omega_0_idx = prog.FindDecisionVariableIndex(Omega[0][0,0])
+# for t in range(N-1):
+#     # R_{i+1} = R_i @ Omega_i  (What Toya has)
+#     for i in range(d):
+#         for j in range(d):
+#             Q = np.zeros((np.shape(X)))
+#             offsets = [(0, 0), (3, 1), (6, 2)] # Offset for R_t, Omega_t
+#             for offset_r, offset_o in offsets:
+#                 Q[R_0_idx+9*t+offset_r+j,Omega_0_idx+9*t+offset_o+3*i] = 0.5
+#                 Q[Omega_0_idx+9*t+offset_o+3*i, R_0_idx+9*t+offset_r+j] = 0.5
+#             Q[-1, R_0_idx+9+9*t+j+3*i] = -0.5
+#             Q[R_0_idx+9+9*t+j+3*i, -1] = -0.5
             
-            prog_sdp.AddConstraint(Q.flatten() @ X.flatten() == 0)
+#             prog_sdp.AddConstraint(Q.flatten() @ X.flatten() == 0)
 
-Omega_0_idx = prog.FindDecisionVariableIndex(Omega[0][0,0])
-for t in range(N-1):
-    # R_{i+1} @ Omega_i^T = R_i
-    for j in range(d):
-        for i in range(d):
-            Q = np.zeros((np.shape(X)))
-            offsets = [(0, 0), (1, 3), (2, 6)] # Offset for R_t, Omega_t
-            for offset_r, offset_o in offsets:
-                Q[R_0_idx+9*(t+1)+offset_r+3*j,Omega_0_idx+9*t+offset_o+i] = 0.5
-                Q[Omega_0_idx+9*t+offset_o+i, R_0_idx+9*(t+1)+offset_r+3*j] = 0.5
-            Q[-1, R_0_idx+9*t+3*j+i] = -0.5
-            Q[R_0_idx+9*t+3*j+i, -1] = -0.5
+# Omega_0_idx = prog.FindDecisionVariableIndex(Omega[0][0,0])
+# for t in range(N-1):
+#     # R_{i+1} @ Omega_i^T = R_i
+#     for i in range(d):
+#         for j in range(d):
+#             Q = np.zeros((np.shape(X)))
+#             offsets = [(0, 0), (3, 1), (6, 2)] # Offset for R_t, Omega_t
+#             for offset_r, offset_o in offsets:
+#                 Q[R_0_idx+9*(t+1)+offset_r+j,Omega_0_idx+9*t+offset_o+3*i] = 0.5
+#                 Q[Omega_0_idx+9*t+offset_o+3*i, R_0_idx+9*(t+1)+offset_r+j] = 0.5
+#             Q[-1, R_0_idx+9*t+j+3*i] = -0.5
+#             Q[R_0_idx+9*t+j+3*i, -1] = -0.5
             
-            prog_sdp.AddConstraint(Q.flatten() @ X.flatten() == 0)
+#             prog_sdp.AddConstraint(Q.flatten() @ X.flatten() == 0)
 
 # X ⪰ 0 Constraint
 prog_sdp.AddPositiveSemidefiniteConstraint(X)
@@ -472,7 +472,7 @@ if result.is_success():
     X_sol[np.abs(X_sol) < 1e-3] = 0
     labels = [var.get_name() for var in prog.decision_variables()][:X.shape[0]-1] + ["_"]
     DF = pd.DataFrame(X_sol, index=labels, columns=labels)
-    DF.to_csv("output_files/sdrake_solver.csv")
+    DF.to_csv("output_files/drake_solver.csv")
     
     # Reconstruct x
     U, S, _ = np.linalg.svd(X_sol[:-1,:-1], hermitian=True)  # ignore homogenous parts of X

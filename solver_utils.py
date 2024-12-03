@@ -108,12 +108,6 @@ def generate_test_file(file_path, measurements, true_lin_pos, true_lin_vel, true
         f.write("Sigma_v = np.linalg.inv(np.eye(d))  # Covariance matrix for velocity\n")
         f.write("Sigma_omega = np.linalg.inv(np.eye(d**2))  # Covariance matrix for angular velocity\n\n")
 
-        # Write helper function for rotation matrix
-        f.write("def make_rot_mat(theta):\n")
-        f.write("    return np.array([[np.cos(theta), -np.sin(theta), 0],\n")
-        f.write("                     [np.sin(theta),  np.cos(theta), 0],\n")
-        f.write("                     [0,              0,             1]])\n\n")
-
         # Write initial guesses
         f.write("# Initial guesses:\n")
         f.write("t_guess = [\n")
