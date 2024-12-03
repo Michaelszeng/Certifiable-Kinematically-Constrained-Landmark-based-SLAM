@@ -175,7 +175,7 @@ def certifiable_solver(measurements, tol=1e-6):
     
     # Problem definition
     prob = cp.Problem(cp.Minimize(cp.trace(Q @ X) + cp.quad_form(v, P)), constraints)
-    prob.solve(solver=cp.MOSEK)
+    prob.solve(solver=cp.MOSEK, verbose=True)
 
     # Reconstruct x
     U, S, _ = np.linalg.svd(X.value[:-1,:-1], hermitian=True)
