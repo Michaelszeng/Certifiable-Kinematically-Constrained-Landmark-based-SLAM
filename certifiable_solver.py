@@ -2,7 +2,7 @@ import cvxpy as cp
 import numpy as np
 import pandas as pd
 
-def certifiable_solver(measurements, tol=1e-6):
+def certifiable_solver(measurements, verbose=False, tol=1e-6, cov_v=1, cov_omega=1, cov_meas=1):
     # Number of timesteps and number of measurements
     N = 1
     for lm_meas in measurements.values():
@@ -13,12 +13,7 @@ def certifiable_solver(measurements, tol=1e-6):
     # [Omega R p t]
     dim_x = 21 * N + 3 * K - 8
     dim_v = 3 * N - 3
-
-    # Velocity, angular velocity, and measurement covariances
-    cov_v = 1
-    cov_omega = 1
-    cov_meas = 1
-
+    
     # Want to minimize tr(QX) + v^TPv
     X = cp.Variable((dim_x, dim_x), PSD=True)
     v = cp.Variable(dim_v)
@@ -175,8 +170,8 @@ def certifiable_solver(measurements, tol=1e-6):
     
     # Problem definition
     prob = cp.Problem(cp.Minimize(cp.trace(Q @ X) + cp.quad_form(v, P)), constraints)
-    prob.solve(solver=cp.MOSEK, verbose=True)
-
+    prob.solve(solver=cp.MOSEK, verbose=verbose)
+    
     # Reconstruct x
     U, S, _ = np.linalg.svd(X.value[:-1,:-1], hermitian=True)
     x = U[:, 0] * np.sqrt(S[0])
