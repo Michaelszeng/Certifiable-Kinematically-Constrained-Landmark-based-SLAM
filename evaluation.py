@@ -3,6 +3,7 @@ import numpy as np
 def compute_relaxation_gap(y_bar, t, v, R, p, Omega, t_gt, v_gt, R_gt, p_gt, Omega_gt, Sigma_p, Sigma_v, Sigma_omega):
     """
     Computes the relaxation gap between the solved values and ground truth values.
+    (i.e. difference in cost value).
     
     Parameters:
         N (int): Number of time steps.
@@ -30,17 +31,11 @@ def compute_relaxation_gap(y_bar, t, v, R, p, Omega, t_gt, v_gt, R_gt, p_gt, Ome
     if isinstance(Sigma_omega, int):
         Sigma_omega = Sigma_omega * np.eye(d*d)
         
-    print(v_gt)
-    print(Omega_gt)
-        
     # Account for the fact that test_generator.py only passes us one velocity since it generates tests with constant velocity
     if v_gt.ndim == 1:
         v_gt = np.array([list(v_gt)] * (N-1))
     if Omega_gt.ndim == 2:
         Omega_gt = np.array([list(Omega_gt)] * (N-1))
-        
-    print(v_gt)
-    print(Omega_gt)
     
     def compute_cost(N, K, y_bar, t, v, R, p, Omega, Sigma_p, Sigma_v, Sigma_omega):
         cost = 0.0
