@@ -183,11 +183,6 @@ def certifiable_solver(measurements, tol=1e-6):
     if x[9*N-9] < 0:
         x = -x
         
-    # Save results
-    X.value[np.abs(X.value) < 1e-3] = 0
-    DF = pd.DataFrame(X.value)
-    DF.to_csv("results.csv")
-
     # Retrieve Omega, R, p, t
     lin_vel = v.value.reshape((N-1), 3)
     ang_vel = x[:9*N-9].reshape((N-1, 3, 3))
@@ -196,7 +191,12 @@ def certifiable_solver(measurements, tol=1e-6):
     lin_pos = x[18*N-9+3*K:21*N+3*K-9].reshape((N, 3))
 
     # Calculate rank of X
-    rank = np.linalg.matrix_rank(X.value, tol=tol, hermitian=True)
+    rank = np.linalg.matrix_rank(X.value[:-1,:-1], tol=tol, hermitian=True)
+
+    # Save results
+    X.value[np.abs(X.value) < 1e-3] = 0
+    DF = pd.DataFrame(X.value)
+    DF.to_csv("results.csv")
 
     return ang_vel, ang_pos, landmarks, lin_vel, lin_pos, rank, S
 

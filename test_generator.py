@@ -5,12 +5,12 @@ from solver_utils import *
 from visualization_utils import visualize_results, visualize_results_3D_simple
 
 true_lin_vel = np.array([1, 0, 0.5])
-true_rpy_vel = np.array([0, 0, 30])
+true_rpy_vel = np.array([0, 0, 45])
 
-num_landmarks = 4
+num_landmarks = 6
 num_timesteps = 4
 
-true_landmarks = np.random.uniform(-6, 6, size=(num_landmarks, 3))
+true_landmarks = np.random.uniform(-10, 10, size=(num_landmarks, 3))
 true_ang_vel = Rotation.from_euler("xyz", true_rpy_vel, degrees=True).as_matrix()
 
 true_lin_pos, true_ang_pos = generate_ground_truth(num_timesteps, true_lin_vel, true_ang_vel)
@@ -20,7 +20,7 @@ measurements = generate_measurements(true_lin_pos, true_ang_pos, true_landmarks,
 calc_ang_vel, calc_ang_pos, calc_landmarks, calc_lin_vel, calc_lin_pos, rank, S = certifiable_solver(measurements)
 print_results(calc_ang_vel, calc_ang_pos, calc_landmarks, calc_lin_vel, calc_lin_pos, rank, S)
 # visualize_results_3D_simple(calc_landmarks, calc_lin_pos)
-visualize_results(num_timesteps, num_landmarks, calc_lin_pos, calc_lin_vel, calc_ang_pos, calc_landmarks, calc_ang_vel)
+visualize_results(num_timesteps, num_landmarks, calc_lin_pos, calc_lin_vel, calc_ang_pos, calc_landmarks, calc_ang_vel, log=False)
 
 # Generate a new `testX.py` file to save this test case
 # measurements = generate_measurements(true_lin_pos, true_ang_pos, true_landmarks, noise=0, dropout=0)

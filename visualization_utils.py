@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Polygon
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
-def visualize_results(N, K, t, v, R, p, Omega):
+def visualize_results(N, K, t, v, R, p, Omega, log=True):
     """
     Check if data is 2D or 3D and use appropriate plotting function.
     
@@ -45,21 +45,22 @@ def visualize_results(N, K, t, v, R, p, Omega):
         Omega_new = Omega
         
     if _2d: 
-        visualize_results_2D(N, K, t_new, v_new, R_new, p_new, Omega_new)
+        visualize_results_2D(N, K, t_new, v_new, R_new, p_new, Omega_new, log)
     else:
-        visualize_results_3D(N, K, t_new, v_new, R_new, p_new, Omega_new)
+        visualize_results_3D(N, K, t_new, v_new, R_new, p_new, Omega_new, log)
         
 
-def visualize_results_2D(N, K, t, v, R, p, Omega):
+def visualize_results_2D(N, K, t, v, R, p, Omega, log=True):
     """
     Plots the robot position and orientation, velocity, and landmark positions
     on a 2D plane to help visualize optimization results.
     """
-    print(f"t: \n{np.array(t)}")
-    print(f"v: \n{np.array(v)}")
-    print(f"p: \n{np.array(p)}")
-    print(f"R: \n{np.array(R)}")
-    print(f"Omega: \n{np.array(Omega)}")
+    if log:
+        print(f"t: \n{np.array(t)}")
+        print(f"v: \n{np.array(v)}")
+        print(f"p: \n{np.array(p)}")
+        print(f"R: \n{np.array(R)}")
+        print(f"Omega: \n{np.array(Omega)}")
     
     def draw_triangle(ax, position, rotation_matrix, size=0.3, color='blue'):
         """
@@ -115,16 +116,17 @@ def visualize_results_2D(N, K, t, v, R, p, Omega):
     plt.show()
     
     
-def visualize_results_3D(N, K, t, v, R, p, Omega):
+def visualize_results_3D(N, K, t, v, R, p, Omega, log=True):
     """
     Plots the robot position and orientation, velocity, and landmark positions
     in 3D to help visualize optimization results.
     """
-    print(f"t: \n{np.array(t)}")
-    print(f"v: \n{np.array(v)}")
-    print(f"p: \n{np.array(p)}")
-    print(f"R: \n{np.array(R)}")
-    print(f"Omega: \n{np.array(Omega)}")
+    if log:
+        print(f"t: \n{np.array(t)}")
+        print(f"v: \n{np.array(v)}")
+        print(f"p: \n{np.array(p)}")
+        print(f"R: \n{np.array(R)}")
+        print(f"Omega: \n{np.array(Omega)}")
     
     def draw_triangle(ax, position, rotation_matrix, size=0.3, color='blue'):
         """

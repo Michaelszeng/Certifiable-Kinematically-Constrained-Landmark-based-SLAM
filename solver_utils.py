@@ -11,7 +11,7 @@ def generate_ground_truth(num_timesteps, true_lin_vel, true_ang_vel):
 
     return lin_pos, ang_pos
 
-def generate_measurements(true_lin_pos, true_ang_pos, true_landmarks, noise=0, dropout=0):
+def generate_measurements(true_lin_pos, true_ang_pos, true_landmarks, noise=0.0, dropout=0.0):
     measurements = {i : dict() for i in range(len(true_landmarks))}
     for t, (lin, ang) in enumerate(zip(true_lin_pos, true_ang_pos)):
         pose = np.zeros((4, 4))
