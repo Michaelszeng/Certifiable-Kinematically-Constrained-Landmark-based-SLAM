@@ -105,10 +105,6 @@ def add_cost_to_qcqp(cost_binding):
             v2_idx = prog.FindDecisionVariableIndex(v2)
 
             Q_cost[v1_idx, v2_idx] += cost.Q()[j, l]
-            # if not np.all(cost.b() == 0):
-            #     print("nonzero b")
-            # if not np.all(cost.c() == 0):
-            #     print("nonzero c")
     
 
 # Constraint Definitions
@@ -152,14 +148,14 @@ for i in range(N - 1):
 
             add_constraint_to_qcqp(f"R_odom_{i}_{row}_{col}", constraint_binding)
             
-            # # LINEAR R_i, QUDRATIC R_{i+1}, Omega_i: R_{i+1} @ Omega_i^T = R_i
-            # # Compute the (row, col) element of the matrix multiplication R_{i+1} @ Omega_i^T
-            # rotation_element = 0
-            # for j in range(d):
-            #     rotation_element += R[i+1][row, j] * Omega[i].T[j, col]
-            # constraint_binding = prog.AddConstraint(rotation_element == R[i][row, col])
+            # LINEAR R_i, QUDRATIC R_{i+1}, Omega_i: R_{i+1} @ Omega_i^T = R_i
+            # Compute the (row, col) element of the matrix multiplication R_{i+1} @ Omega_i^T
+            rotation_element = 0
+            for j in range(d):
+                rotation_element += R[i+1][row, j] * Omega[i].T[j, col]
+            constraint_binding = prog.AddConstraint(rotation_element == R[i][row, col])
 
-            # add_constraint_to_qcqp(f"R_odom_rotated_{i}_{row}_{col}", constraint_binding)
+            add_constraint_to_qcqp(f"R_odom_rotated_{i}_{row}_{col}", constraint_binding)
             
     if i < N - 2:
         for row in range(d):
@@ -361,8 +357,6 @@ for i in range(len(Q_constraints)):
         [0.5 * b_constraints[i][np.newaxis, :],                      c_constraints[i]]
     ])
     
-    # print(Q_constraint)
-    
     Q_constraint_flat = Q_constraint.flatten()
     prog_sdp.AddLinearEqualityConstraint(Q_constraint_flat @ X_flat == 0)  # Drake is faster if we flatten first, instead of using np.trace()
     
@@ -466,7 +460,7 @@ print(f"Solved using: {result.get_solver_id().name()}")
 
 if result.is_success():
     X_sol = result.GetSolution(X)
-    print(f"Rank of X: {np.linalg.matrix_rank(X_sol, rtol=1e-1, hermitian=True)}")
+    print(f"Rank of X: {np.linalg.matrix_rank(X_sol, rtol=1e-6, hermitian=True)}")
     
     # Save X as csv
     X_sol[np.abs(X_sol) < 1e-3] = 0
@@ -488,10 +482,10 @@ if result.is_success():
     p_sol = []
     for i in range(N):
         t_sol.append(x_sol[d*i : d*(i+1)])
-        R_sol.append(x_sol[d*N + d*(N-1) + d*K + d*d*i : d*N + d*(N-1) + d*K + d*d*(i+1)].reshape((3,3)))
+        R_sol.append(x_sol[d*N + d*(N-1) + d*K + d*d*i : d*N + d*(N-1) + d*K + d*d*(i+1)].reshape((3,3)).T)
     for i in range(N-1):
         v_sol.append(x_sol[d*N + d*i : d*N + d*(i+1)])
-        Omega_sol.append(x_sol[d*N + d*(N-1) + d*K + d*d*N + d*d*i : d*N + d*(N-1) + d*K + d*d*N + d*d*(i+1)].reshape((3,3)))
+        Omega_sol.append(x_sol[d*N + d*(N-1) + d*K + d*d*N + d*d*i : d*N + d*(N-1) + d*K + d*d*N + d*d*(i+1)].reshape((3,3)).T)
     for k in range(K):
         p_sol.append(x_sol[d*N + d*(N-1) + d*k : d*N + d*(N-1) + d*(k+1)])
     

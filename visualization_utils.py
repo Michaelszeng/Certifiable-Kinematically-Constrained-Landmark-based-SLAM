@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import Polygon
+from matplotlib.animation import FuncAnimation
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
 def visualize_results(N, K, t, v, R, p, Omega, log=True):
@@ -116,7 +117,7 @@ def visualize_results_2D(N, K, t, v, R, p, Omega, log=True):
     plt.show()
     
     
-def visualize_results_3D(N, K, t, v, R, p, Omega, log=True):
+def visualize_results_3D(N, K, t, v, R, p, Omega, log=True, animate=False, gridlines=True):
     """
     Plots the robot position and orientation, velocity, and landmark positions
     in 3D to help visualize optimization results.
@@ -194,12 +195,24 @@ def visualize_results_3D(N, K, t, v, R, p, Omega, log=True):
     ax.set_xlim(mid_x - max_range, mid_x + max_range)
     ax.set_ylim(mid_y - max_range, mid_y + max_range)
     ax.set_zlim(mid_z - max_range, mid_z + max_range)
+    
+    if not gridlines:
+        ax.grid(False)
+        ax.axis('off')
+    else:
+        ax.set_xlabel('X')
+        ax.set_ylabel('Y')
+        ax.set_zlabel('Z')
+        ax.set_title('3D Visualization of Robot Poses and Landmarks')
+        ax.legend()
+    
+    # Animation function to update the view angle
+    def update(frame):
+        ax.view_init(elev=30, azim=frame)
 
-    ax.set_xlabel('X')
-    ax.set_ylabel('Y')
-    ax.set_zlabel('Z')
-    ax.set_title('3D Visualization of Robot Poses and Landmarks')
-    ax.legend()
+    # Create animation
+    if animate:
+        ani = FuncAnimation(fig, update, frames=np.arange(0, 360, 2), interval=50)
     plt.show()
 
 
