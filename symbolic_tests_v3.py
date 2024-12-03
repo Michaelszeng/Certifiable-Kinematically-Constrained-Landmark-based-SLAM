@@ -16,7 +16,7 @@ from visualization_utils import *
 current_folder = os.path.dirname(os.path.abspath(__file__))
 test_data_path = os.path.join(current_folder, "test_data")
 sys.path.append(test_data_path)
-from test6 import *
+from test7 import *
 
 np.set_printoptions(edgeitems=30, linewidth=270, precision=4, suppress=True)
 
@@ -453,7 +453,7 @@ print(f"Solved using: {result.get_solver_id().name()}")
 if result.is_success():
     X_sol = result.GetSolution(X)
     v_sol_arr = result.GetSolution(v)
-    print(f"Rank of X: {np.linalg.matrix_rank(X_sol, rtol=1e-1, hermitian=True)}")
+    print(f"Rank of X: {np.linalg.matrix_rank(X_sol, rtol=1e-6, hermitian=True)}")
     
     # Save X as csv
     X_sol[np.abs(X_sol) < 1e-3] = 0
@@ -475,10 +475,10 @@ if result.is_success():
     p_sol = []
     for i in range(N):
         t_sol.append(x_sol[d*i : d*(i+1)])
-        R_sol.append(x_sol[d*N + d*K + d*d*i : d*N + d*K + d*d*(i+1)].reshape((3,3)))
+        R_sol.append(x_sol[d*N + d*K + d*d*i : d*N + d*K + d*d*(i+1)].reshape((3,3)).T)
     for i in range(N-1):
         v_sol.append(v_sol_arr[d*i : d*(i+1)])
-        Omega_sol.append(x_sol[d*N + d*K + d*d*N + d*d*i : d*N + d*K + d*d*N + d*d*(i+1)].reshape((3,3)))
+        Omega_sol.append(x_sol[d*N + d*K + d*d*N + d*d*i : d*N + d*K + d*d*N + d*d*(i+1)].reshape((3,3)).T)
     for k in range(K):
         p_sol.append(x_sol[d*N + d*k : d*N + d*(k+1)])
     

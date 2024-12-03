@@ -239,3 +239,5 @@ fabric.properties
 
 # Generated CSV files
 *.csv
+
+test_data/
