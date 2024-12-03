@@ -16,7 +16,7 @@ from visualization_utils import *
 current_folder = os.path.dirname(os.path.abspath(__file__))
 test_data_path = os.path.join(current_folder, "test_data")
 sys.path.append(test_data_path)
-from test6 import *
+from test4 import *
 
 np.set_printoptions(edgeitems=30, linewidth=270, precision=4, suppress=True)
 
@@ -105,10 +105,6 @@ def add_cost_to_qcqp(cost_binding):
             v2_idx = prog.FindDecisionVariableIndex(v2)
 
             Q_cost[v1_idx, v2_idx] += cost.Q()[j, l]
-            # if not np.all(cost.b() == 0):
-            #     print("nonzero b")
-            # if not np.all(cost.c() == 0):
-            #     print("nonzero c")
     
 
 # Constraint Definitions
