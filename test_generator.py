@@ -9,8 +9,8 @@ from evaluation import compute_relaxation_gap
 true_lin_vel = np.array([1, 0, 0.5])
 true_rpy_vel = np.array([0, 0, 45])
 
-num_landmarks = 4
-num_timesteps = 4
+num_landmarks = 6
+num_timesteps = 5
 
 # Velocity, angular velocity, and measurement covariances
 cov_v = 1
