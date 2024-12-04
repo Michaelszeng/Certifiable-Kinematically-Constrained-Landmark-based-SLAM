@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from certifiable_solver import certifiable_solver
 from solver_utils import *
 
-true_lin_vel = np.array([1, 0, 0.5])
+true_lin_vel = np.array([1, 0, 0])
 true_rpy_vel = np.array([0, 0, 45])
 
 num_landmarks = 4
@@ -35,6 +35,7 @@ for noise in noise_levels:
 
 average_ranks = np.array(average_ranks)
 
+np.save("rank_benchmark.npy", average_ranks)
 
 plt.figure(figsize=(10, 6))
 positions = np.arange(len(noise_levels))

@@ -237,7 +237,7 @@ fabric.properties
 
 /external_wheels/
 
-# Generated CSV files
+# Generated test data
 *.csv
-
 test_data/
+*.npy
