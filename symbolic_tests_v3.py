@@ -16,7 +16,7 @@ from visualization_utils import *
 current_folder = os.path.dirname(os.path.abspath(__file__))
 test_data_path = os.path.join(current_folder, "test_data")
 sys.path.append(test_data_path)
-from test8 import *
+from benchmark_SPIRAL_N_10_K_10 import *
 
 np.set_printoptions(edgeitems=30, linewidth=270, precision=4, suppress=True)
 
@@ -47,9 +47,6 @@ def add_constraint_to_qcqp(name, constraint_binding):
     """
     Helper function to format a generic (quadratic) constraint into QCQP form by
     adding to the `Q_constraint` and `b_constraint` arrays.
-    
-    TODO: build compatibility with linear costs as well to make this work with
-    more general formulations that might have linear constraints.
     
     Args:
         constraint_binding: Binding<Constraint> object containing binding for the added constraint.
@@ -92,6 +89,9 @@ def add_Q_cost_to_qcqp(cost_binding):
     
     Note that it is assumed the optimization admits a least squares formulation,
     so there are no linear terms in the cost.
+    
+    TODO: build compatibility with linear costs as well to make this work with
+    more general formulations that might have linear constraints.
     
     Args:
         cost_binding: Binding<Cost> object containing binding for the added cost.

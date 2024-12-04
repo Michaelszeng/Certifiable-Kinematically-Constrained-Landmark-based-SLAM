@@ -16,7 +16,7 @@ from visualization_utils import *
 current_folder = os.path.dirname(os.path.abspath(__file__))
 test_data_path = os.path.join(current_folder, "test_data")
 sys.path.append(test_data_path)
-from test8 import *
+from test_moving_landmarks_spiral import *
 
 np.set_printoptions(edgeitems=30, linewidth=270, precision=4, suppress=True)
 
@@ -38,6 +38,7 @@ v = [prog.NewContinuousVariables(d, f"v_{i}") for i in range(N-1)]              
 p = [prog.NewContinuousVariables(d, f"p_{k}") for k in range(K)]                # Landmark positions p_k
 R = [prog.NewContinuousVariables(d, d, f"R_{i}") for i in range(N)]             # Rotations R_i
 Omega = [prog.NewContinuousVariables(d, d, f"Ω_{i}") for i in range(N-1)]     # Angular velocities Ω_i
+z = [prog.NewContinuousVariables(d, f"z_{k}") for k in range(K)]   # Landmark velocities v_k
 
 
 def add_constraint_to_qcqp(name, constraint_binding):
@@ -105,6 +106,8 @@ def add_cost_to_qcqp(cost_binding):
             v2_idx = prog.FindDecisionVariableIndex(v2)
 
             Q_cost[v1_idx, v2_idx] += cost.Q()[j, l]
+            
+        b_cost[v1_idx] += cost.b()[j]
     
 
 # Constraint Definitions
@@ -221,11 +224,18 @@ for dim in range(d):
     constraint_binding = prog.AddConstraint(t[0][dim] * t[0][dim] == 0)
     
     add_constraint_to_qcqp(f"t_initial_{row}_{col}", constraint_binding)
+    
+# 7: 0.25 norm on landmark velocties
+for k in range(K):   
+    constraint_binding = prog.AddConstraint(sum(z[k][dim]**2 for dim in range(d)) == 0.25**2)
+
+    add_constraint_to_qcqp(f"z_norm_{k}", constraint_binding)
 
 
 # Cost Function
 # Cost is of the form: 1/2 x^T Q_cost x
 Q_cost = np.zeros((prog.num_vars(), prog.num_vars()))
+b_cost = np.zeros(prog.num_vars())
 
 # 1. Landmark Residuals
 for k in range(K):
@@ -233,11 +243,11 @@ for k in range(K):
         # R[j] @ y_bar[k][j]
         Rj_y = [sum(R[j][row, m] * y_bar_kj[m] for m in range(d)) for row in range(d)]
         
-        # (p[k] - t[j])
-        p_minus_t = [p[k][dim] - t[j][dim] for dim in range(d)]
+        # ((p[k] + z[k]*j) - t[j])
+        p_z_minus_t = [p[k][dim] + z[k][dim]*j - t[j][dim] for dim in range(d)]
         
-        # Residual: R[j] @ y_bar[k][j] - (p[k] - t[j])
-        residual = [Rj_y[row] - p_minus_t[row] for row in range(d)]
+        # Residual: R[j] @ y_bar[k][j] - ((p[k] + z[k]*j) - t[j])
+        residual = [Rj_y[row] - p_z_minus_t[row] for row in range(d)]
         
         # Quadratic form: residual^T * Sigma_p * residual
         quad_form = 0.0
@@ -247,7 +257,7 @@ for k in range(K):
         
         cost_binding = prog.AddCost(quad_form)
         
-        add_cost_to_qcqp(cost_binding)
+        add_cost_to_qcqp(cost_binding)    
         
 # 2. Velocity Differences
 for i in range(N - 2):
@@ -289,6 +299,7 @@ for i in range(N-1):
     prog.SetInitialGuess(Omega[i], Omega_guess[i])
 for k in range(K):
     prog.SetInitialGuess(p[k], p_guess[k])
+    prog.SetInitialGuess(z[k], z_guess[k])
     
 print("Beginning Non-convex Solve.")
 start = time.time()
@@ -302,6 +313,7 @@ if result.is_success():
     R_sol = []
     Omega_sol = []
     p_sol = []
+    z_sol = []
     for i in range(N):
         t_sol.append(result.GetSolution(t[i]))
         R_sol.append(result.GetSolution(R[i]))
@@ -310,8 +322,9 @@ if result.is_success():
         Omega_sol.append(result.GetSolution(Omega[i]))
     for k in range(K):
         p_sol.append(result.GetSolution(p[k]))
+        z_sol.append(result.GetSolution(z[k]))
     
-    visualize_results(N, K, t_sol, v_sol, R_sol, p_sol, Omega_sol)
+    visualize_results(N, K, t_sol, v_sol, R_sol, p_sol, Omega_sol, z_sol)
     
 else:
     print("solve failed.")
@@ -415,6 +428,7 @@ x_guess = np.array(sum(t_guess, []) +
                     sum(p_guess, []) +
                     [val for R in R_guess for val in R.T.flatten()] +
                     [val for Omega in Omega_guess for val in Omega.T.flatten()] + 
+                    sum(z_guess, []) +
                     [1]).reshape((np.shape(X)[0], 1))
 X_guess = x_guess @ x_guess.T
 for i in range(X.shape[0]):
@@ -449,6 +463,7 @@ if result.is_success():
     R_sol = []
     Omega_sol = []
     p_sol = []
+    z_sol = []
     for i in range(N):
         t_sol.append(x_sol[d*i : d*(i+1)])
         R_sol.append(x_sol[d*N + d*(N-1) + d*K + d*d*i : d*N + d*(N-1) + d*K + d*d*(i+1)].reshape((3,3)).T)
@@ -457,8 +472,9 @@ if result.is_success():
         Omega_sol.append(x_sol[d*N + d*(N-1) + d*K + d*d*N + d*d*i : d*N + d*(N-1) + d*K + d*d*N + d*d*(i+1)].reshape((3,3)).T)
     for k in range(K):
         p_sol.append(x_sol[d*N + d*(N-1) + d*k : d*N + d*(N-1) + d*(k+1)])
+        z_sol.append(x_sol[d*N + d*(N-1) + d*K + d*d*N + d*d*(N-1) + d*k : d*N + d*(N-1) + d*K + d*d*N + d*d*(N-1) + d*(k+1)])
     
-    visualize_results(N, K, t_sol, v_sol, R_sol, p_sol, Omega_sol)
+    visualize_results(N, K, t_sol, v_sol, R_sol, p_sol, Omega_sol, z_sol)
     
 else:
     print("solve failed.")
