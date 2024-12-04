@@ -9,8 +9,8 @@ from evaluation import compute_relaxation_gap, compute_mean_errors
 true_lin_vel = np.array([1, 0, 0])
 true_rpy_vel = np.array([0, 0, 0])
 
-num_landmarks = 4
-num_timesteps = 4
+num_landmarks = 2
+num_timesteps = 5
 
 # Velocity, angular velocity, and measurement covariances
 cov_v = 1
@@ -51,4 +51,4 @@ print(f"Relaxation gap: {gap}")
 
 mean_errors = compute_mean_errors(measurements, calc_lin_pos, calc_lin_vel, calc_ang_pos, calc_landmarks, calc_ang_vel, 
                                                 true_lin_pos, true_lin_vel, true_ang_pos, true_landmarks, true_ang_vel)
-print(f"mean_errors: {mean_errors}")
+print(f"Mean_errors: {mean_errors}")
