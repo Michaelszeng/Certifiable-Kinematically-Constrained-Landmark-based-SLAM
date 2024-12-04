@@ -1,16 +1,26 @@
 import numpy as np
 
+def fix_velocities(N, v_gt, Omega_gt):
+    # Account for the fact that test_generator.py only passes us one velocity since it generates tests with constant velocity
+    if v_gt.ndim == 1:
+        v_gt = np.array([list(v_gt)] * (N-1))
+    if Omega_gt.ndim == 2:
+        Omega_gt = np.array([list(Omega_gt)] * (N-1))
+    
+    return v_gt, Omega_gt
+
+
+
 def compute_relaxation_gap(y_bar, t, v, R, p, Omega, t_gt, v_gt, R_gt, p_gt, Omega_gt, Sigma_p, Sigma_v, Sigma_omega):
     """
     Computes the relaxation gap between the solved values and ground truth values.
     (i.e. difference in cost value).
     
     Parameters:
-        N (int): Number of time steps.
-        K (int): Number of landmarks.
-        y_bar, t, v, R, p, Omega: Solved values for y_bar, t, v, R, p, and Omega.
-        t_gt, v_gt, R_gt, p_gt, Omega_gt: Ground truth values for t, v, R, p, and Omega.
-        Sigma_p, Sigma_v, Sigma_omega: Covariance matrices for landmark residuals, velocity, and angular velocity differences.
+        y_bar: measurements dict
+        t, v, R, p, Omega: Solved values for t, v, R, p, and Omega; all numpy arrays.
+        t_gt, v_gt, R_gt, p_gt, Omega_gt: Ground truth values for t, v, R, p, and Omega; all numpy arrays.
+        Sigma_p, Sigma_v, Sigma_omega: Covariance matrices (or values) for landmark residuals, velocity, and angular velocity differences.
         
     Returns:
         float: Relaxation gap (ground truth cost - solved cost).
@@ -20,7 +30,6 @@ def compute_relaxation_gap(y_bar, t, v, R, p, Omega, t_gt, v_gt, R_gt, p_gt, Ome
         for timestep in lm_meas.keys():
             N = max(N, timestep + 1)
     K = len(y_bar)
-    
     d = len(Omega[0]) 
     
     # Handle both integer and matrix covariances
@@ -30,12 +39,8 @@ def compute_relaxation_gap(y_bar, t, v, R, p, Omega, t_gt, v_gt, R_gt, p_gt, Ome
         Sigma_v = Sigma_v * np.eye(d)
     if isinstance(Sigma_omega, int):
         Sigma_omega = Sigma_omega * np.eye(d*d)
-        
-    # Account for the fact that test_generator.py only passes us one velocity since it generates tests with constant velocity
-    if v_gt.ndim == 1:
-        v_gt = np.array([list(v_gt)] * (N-1))
-    if Omega_gt.ndim == 2:
-        Omega_gt = np.array([list(Omega_gt)] * (N-1))
+
+    v_gt, Omega_gt = fix_velocities(N, v_gt, Omega_gt)
     
     def compute_cost(N, K, y_bar, t, v, R, p, Omega, Sigma_p, Sigma_v, Sigma_omega):
         cost = 0.0
@@ -84,5 +89,47 @@ def compute_relaxation_gap(y_bar, t, v, R, p, Omega, t_gt, v_gt, R_gt, p_gt, Ome
     return ground_truth_cost[0][0] - solved_cost[0][0]
 
 
-def compute_mean_errors(t, v, R, p, Omega, t_gt, v_gt, R_gt, p_gt, Omega_gt):
-    pass
+def compute_mean_errors(y_bar, t, v, R, p, Omega, t_gt, v_gt, R_gt, p_gt, Omega_gt):
+    """
+    Computes the mean error between the solved values and ground truth values.
+    Report rotation errors in degrees.
+    
+    Parameters:
+        y_bar: measurements dict
+        t, v, R, p, Omega: Solved values for t, v, R, p, and Omega; all numpy arrays.
+        t_gt, v_gt, R_gt, p_gt, Omega_gt: Ground truth values for t, v, R, p, and Omega; all numpy arrays.
+        
+    Returns:
+        Dictionary mapping each variable name ("t", "v", "R", "p", "Omega") to the mean error value.
+    """
+    N = 1
+    for lm_meas in y_bar.values():
+        for timestep in lm_meas.keys():
+            N = max(N, timestep + 1)
+            
+    v_gt, Omega_gt = fix_velocities(N, v_gt, Omega_gt)
+    
+    def rotation_error_deg(R1, R2):
+        """Compute geodesic error between two rotation matrices in degrees."""
+        trace = np.trace(R1.T @ R2)
+        angle_rad = np.arccos(np.clip((trace - 1) / 2, -1.0, 1.0))
+        return np.degrees(angle_rad)
+    
+    mean_errors = {}
+    
+    # Compute mean position error for `t`
+    mean_errors["t"] = np.mean(np.linalg.norm(t - t_gt, axis=1))
+    
+    # Compute mean velocity error for `v`
+    mean_errors["v"] = np.mean(np.linalg.norm(v - v_gt, axis=1))
+    
+    # Compute mean rotational error for `R`
+    mean_errors["R"] = np.mean([rotation_error_deg(R[i], R_gt[i]) for i in range(len(R))])
+    
+    # Compute mean landmark position error for `p`
+    mean_errors["p"] = np.mean(np.linalg.norm(p - p_gt, axis=1))
+    
+    # Compute mean rotational error for `Omega`
+    mean_errors["Omega"] = np.mean([rotation_error_deg(Omega[i], Omega_gt[i]) for i in range(len(Omega))])
+    
+    return mean_errors

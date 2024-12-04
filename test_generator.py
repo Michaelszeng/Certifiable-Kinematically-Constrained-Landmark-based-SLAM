@@ -4,7 +4,7 @@ from scipy.spatial.transform import Rotation
 from certifiable_solver import certifiable_solver
 from solver_utils import *
 from visualization_utils import visualize_results
-from evaluation import compute_relaxation_gap
+from evaluation import compute_relaxation_gap, compute_mean_errors
 
 true_lin_vel = np.array([1, 0, 0])
 true_rpy_vel = np.array([0, 0, 0])
@@ -44,6 +44,11 @@ visualize_results(num_timesteps, num_landmarks, calc_lin_pos, calc_lin_vel, calc
 
 time.sleep(0.1)  # Let things finish printing
 gap = compute_relaxation_gap(measurements, calc_lin_pos, calc_lin_vel, calc_ang_pos, calc_landmarks, calc_ang_vel, 
-                             true_lin_pos, true_lin_vel, true_ang_pos, true_landmarks, true_ang_vel, 
-                             cov_v, cov_omega, cov_meas)
+                                           true_lin_pos, true_lin_vel, true_ang_pos, true_landmarks, true_ang_vel, 
+                                           cov_v, cov_omega, cov_meas)
 print(f"Relaxation gap: {gap}")
+
+
+mean_errors = compute_mean_errors(measurements, calc_lin_pos, calc_lin_vel, calc_ang_pos, calc_landmarks, calc_ang_vel, 
+                                                true_lin_pos, true_lin_vel, true_ang_pos, true_landmarks, true_ang_vel)
+print(f"mean_errors: {mean_errors}")
