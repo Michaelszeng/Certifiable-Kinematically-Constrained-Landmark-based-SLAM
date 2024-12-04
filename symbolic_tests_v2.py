@@ -16,7 +16,7 @@ from visualization_utils import *
 current_folder = os.path.dirname(os.path.abspath(__file__))
 test_data_path = os.path.join(current_folder, "test_data")
 sys.path.append(test_data_path)
-from test4 import *
+from test8 import *
 
 np.set_printoptions(edgeitems=30, linewidth=270, precision=4, suppress=True)
 
@@ -125,15 +125,15 @@ for i in range(N - 1):
         add_constraint_to_qcqp(f"t_odom_{i}_{dim}", constraint_binding)
         
         
-        # # LINEAR V, QUADRATIC R,T FORMULATION: R_i^T @ t_{i+1} = R_i^T @ t_i + v_i
-        # # Compute the dim'th element of the matrix vector product R_i @ t_{i+1}
-        # R_t_i_plus_1 = rotation_times_velocity = sum(R[i].T[dim, j] * t[i+1][j] for j in range(d))
-        # # Compute the dim'th element of the matrix vector product R_i @ t_i
-        # R_t_i = rotation_times_velocity = sum(R[i].T[dim, j] * t[i][j] for j in range(d))
+        # LINEAR V, QUADRATIC R,T FORMULATION: R_i^T @ t_{i+1} = R_i^T @ t_i + v_i
+        # Compute the dim'th element of the matrix vector product R_i @ t_{i+1}
+        R_t_i_plus_1 = rotation_times_velocity = sum(R[i].T[dim, j] * t[i+1][j] for j in range(d))
+        # Compute the dim'th element of the matrix vector product R_i @ t_i
+        R_t_i = rotation_times_velocity = sum(R[i].T[dim, j] * t[i][j] for j in range(d))
         
-        # constraint_binding = prog.AddConstraint(R_t_i_plus_1 == R_t_i + v[i][dim])
+        constraint_binding = prog.AddConstraint(R_t_i_plus_1 == R_t_i + v[i][dim])
         
-        # add_constraint_to_qcqp(f"t_odom_rotated_{i}_{dim}", constraint_binding)
+        add_constraint_to_qcqp(f"t_odom_rotated_{i}_{dim}", constraint_binding)
     
 # 2. Rotational Odometry Constraint
 for i in range(N - 1):
@@ -148,28 +148,28 @@ for i in range(N - 1):
 
             add_constraint_to_qcqp(f"R_odom_{i}_{row}_{col}", constraint_binding)
             
-    #         # LINEAR R_i, QUDRATIC R_{i+1}, Omega_i: R_{i+1} @ Omega_i^T = R_i
-    #         # Compute the (row, col) element of the matrix multiplication R_{i+1} @ Omega_i^T
-    #         rotation_element = 0
-    #         for j in range(d):
-    #             rotation_element += R[i+1][row, j] * Omega[i].T[j, col]
-    #         constraint_binding = prog.AddConstraint(rotation_element == R[i][row, col])
+            # LINEAR R_i, QUDRATIC R_{i+1}, Omega_i: R_{i+1} @ Omega_i^T = R_i
+            # Compute the (row, col) element of the matrix multiplication R_{i+1} @ Omega_i^T
+            rotation_element = 0
+            for j in range(d):
+                rotation_element += R[i+1][row, j] * Omega[i].T[j, col]
+            constraint_binding = prog.AddConstraint(rotation_element == R[i][row, col])
 
-    #         add_constraint_to_qcqp(f"R_odom_rotated_{i}_{row}_{col}", constraint_binding)
+            add_constraint_to_qcqp(f"R_odom_rotated_{i}_{row}_{col}", constraint_binding)
             
-    # if i < N - 2:
-    #     for row in range(d):
-    #         for col in range(d):
-    #             # ALL QUADRATIC TERMS: R_i @ Omega_i = R_{i+2} @ Omega_{i+1}^T
-    #             # Compute the (row, col) element of the matrix multiplication R_i @ Omega_i
-    #             left_side = 0
-    #             right_side = 0
-    #             for j in range(d):
-    #                 left_side += R[i][row, j] * Omega[i][j, col]
-    #                 right_side += R[i+2][row, j] * Omega[i].T[j, col]
-    #             constraint_binding = prog.AddConstraint(left_side == right_side)
+    if i < N - 2:
+        for row in range(d):
+            for col in range(d):
+                # ALL QUADRATIC TERMS: R_i @ Omega_i = R_{i+2} @ Omega_{i+1}^T
+                # Compute the (row, col) element of the matrix multiplication R_i @ Omega_i
+                left_side = 0
+                right_side = 0
+                for j in range(d):
+                    left_side += R[i][row, j] * Omega[i][j, col]
+                    right_side += R[i+2][row, j] * Omega[i].T[j, col]
+                constraint_binding = prog.AddConstraint(left_side == right_side)
 
-    #             add_constraint_to_qcqp(f"R_odom_substituted_{i}_{row}_{col}", constraint_binding)
+                add_constraint_to_qcqp(f"R_odom_substituted_{i}_{row}_{col}", constraint_binding)
 
 # 3. SO(3) Constraint on Rotation: R_i^T @ R_i == I_d and R_i @ R_i^T == I_d
 for i in range(N):
@@ -178,14 +178,14 @@ for i in range(N):
             if row == col:
                 # Diagonal entries
                 constraint_binding1 = prog.AddConstraint(R[i].T[row, :].dot(R[i][:, col]) == 1)
-                # constraint_binding2 = prog.AddConstraint(R[i][row, :].dot(R[i].T[:, col]) == 1)
+                constraint_binding2 = prog.AddConstraint(R[i][row, :].dot(R[i].T[:, col]) == 1)
             else:
                 # Off-diagonal entries
                 constraint_binding1 = prog.AddConstraint(R[i].T[row, :].dot(R[i][:, col]) == 0)
-                # constraint_binding2 = prog.AddConstraint(R[i][row, :].dot(R[i].T[:, col]) == 0)
+                constraint_binding2 = prog.AddConstraint(R[i][row, :].dot(R[i].T[:, col]) == 0)
                 
             add_constraint_to_qcqp(f"R_ortho1_{i}_{row}_{col}", constraint_binding1)
-            # add_constraint_to_qcqp(f"R_ortho2_{i}_{row}_{col}", constraint_binding2)
+            add_constraint_to_qcqp(f"R_ortho2_{i}_{row}_{col}", constraint_binding2)
 
 # 4. SO(3) Constraint on Angular Velocity: Omega_i^T @ Omega_i == I_d and Omega_i @ Omega_i^T == I_d
 for i in range(N-1):
@@ -194,14 +194,14 @@ for i in range(N-1):
             if row == col:
                 # Diagonal entries
                 constraint_binding1 = prog.AddConstraint(Omega[i].T[row, :].dot(Omega[i][:, col]) == 1)
-                # constraint_binding2 = prog.AddConstraint(Omega[i][row, :].dot(Omega[i].T[:, col]) == 1)
+                constraint_binding2 = prog.AddConstraint(Omega[i][row, :].dot(Omega[i].T[:, col]) == 1)
             else:
                 # Off-diagonal entries
                 constraint_binding1 = prog.AddConstraint(Omega[i].T[row, :].dot(Omega[i][:, col]) == 0)
-                # constraint_binding2 = prog.AddConstraint(Omega[i][row, :].dot(Omega[i].T[:, col]) == 0)
+                constraint_binding2 = prog.AddConstraint(Omega[i][row, :].dot(Omega[i].T[:, col]) == 0)
 
             add_constraint_to_qcqp(f"omega_ortho1_{i}_{row}_{col}", constraint_binding1)
-            # add_constraint_to_qcqp(f"omega_ortho2_{i}_{row}_{col}", constraint_binding2)
+            add_constraint_to_qcqp(f"omega_ortho2_{i}_{row}_{col}", constraint_binding2)
             
 # 5. Initial identity rotation:
 for row in range(d):
@@ -362,26 +362,26 @@ for i in range(len(Q_constraints)):
     
 # Tighten initial identity rotation constraint by setting everything in the rows and columns corresponding to non-diagonal components of R_0 to 0
 R_0_idx = prog.FindDecisionVariableIndex(R[0][0,0])
-# for dim in range(R_0_idx, R_0_idx + d*d):  # Iterate through components of R_0
-#     for j in range(np.shape(X)[0]):
-#         Q = np.zeros((np.shape(X)))
-#         if dim-R_0_idx not in {0, 4, 8} and j-R_0_idx not in {0, 4, 8}:  # Any component of X in the R[0] rows/columns that doesn't contain a diagonal component of R[0] gets set to 0
-#             Q[dim,j] = Q[j,dim] = 0.5
-#             prog_sdp.AddConstraint(Q.flatten() @ X.flatten() == 0)
+for dim in range(R_0_idx, R_0_idx + d*d):  # Iterate through components of R_0
+    for j in range(np.shape(X)[0]):
+        Q = np.zeros((np.shape(X)))
+        if dim-R_0_idx not in {0, 4, 8} and j-R_0_idx not in {0, 4, 8}:  # Any component of X in the R[0] rows/columns that doesn't contain a diagonal component of R[0] gets set to 0
+            Q[dim,j] = Q[j,dim] = 0.5
+            prog_sdp.AddConstraint(Q.flatten() @ X.flatten() == 0)
 
-# # Tighten initial 0 translation constraint by setting everything in t_0 rows and columns to 0
-# for dim in range(d):
-#     for j in range(np.shape(X)[0]):
-#         Q = np.zeros((np.shape(X)))
-#         Q[dim, j] = Q[j, dim] = 0.5
-#         prog_sdp.AddConstraint(Q.flatten() @ X.flatten() == 0)
+# Tighten initial 0 translation constraint by setting everything in t_0 rows and columns to 0
+for dim in range(d):
+    for j in range(np.shape(X)[0]):
+        Q = np.zeros((np.shape(X)))
+        Q[dim, j] = Q[j, dim] = 0.5
+        prog_sdp.AddConstraint(Q.flatten() @ X.flatten() == 0)
 
 
 # Add Homogenous constraints
 # X[-1,-1] = 1
-# Q = np.zeros((np.shape(X)))
-# Q[-1,-1] = 1
-# prog_sdp.AddConstraint(Q.flatten() @ X.flatten() == 1)
+Q = np.zeros((np.shape(X)))
+Q[-1,-1] = 1
+prog_sdp.AddConstraint(Q.flatten() @ X.flatten() == 1)
 
 # Anchor the the initial rotation and translation for the homogenous odometry constraints
 for dim in range(R_0_idx, R_0_idx + d*d):  # Enforce first rotation as identity rotation
@@ -393,42 +393,11 @@ for dim in range(R_0_idx, R_0_idx + d*d):  # Enforce first rotation as identity 
     else:
         prog_sdp.AddConstraint(Q.flatten() @ X.flatten() == 0)
 
-# for i in range(d):  # Enforce first translation as 0
-#     Q = np.zeros((np.shape(X)))
-#     Q[-1, i] = 0.5
-#     Q[i, -1] = 0.5
-#     prog_sdp.AddConstraint(Q.flatten() @ X.flatten() == 0)
-    
-# # Add additional linear-quadratic-mixed rotational odometry constraints using the homogenous variables
-# Omega_0_idx = prog.FindDecisionVariableIndex(Omega[0][0,0])
-# for t in range(N-1):
-#     # R_{i+1} = R_i @ Omega_i  (What Toya has)
-#     for i in range(d):
-#         for j in range(d):
-#             Q = np.zeros((np.shape(X)))
-#             offsets = [(0, 0), (3, 1), (6, 2)] # Offset for R_t, Omega_t
-#             for offset_r, offset_o in offsets:
-#                 Q[R_0_idx+9*t+offset_r+j,Omega_0_idx+9*t+offset_o+3*i] = 0.5
-#                 Q[Omega_0_idx+9*t+offset_o+3*i, R_0_idx+9*t+offset_r+j] = 0.5
-#             Q[-1, R_0_idx+9+9*t+j+3*i] = -0.5
-#             Q[R_0_idx+9+9*t+j+3*i, -1] = -0.5
-            
-#             prog_sdp.AddConstraint(Q.flatten() @ X.flatten() == 0)
-
-# Omega_0_idx = prog.FindDecisionVariableIndex(Omega[0][0,0])
-# for t in range(N-1):
-#     # R_{i+1} @ Omega_i^T = R_i
-#     for i in range(d):
-#         for j in range(d):
-#             Q = np.zeros((np.shape(X)))
-#             offsets = [(0, 0), (3, 1), (6, 2)] # Offset for R_t, Omega_t
-#             for offset_r, offset_o in offsets:
-#                 Q[R_0_idx+9*(t+1)+offset_r+j,Omega_0_idx+9*t+offset_o+3*i] = 0.5
-#                 Q[Omega_0_idx+9*t+offset_o+3*i, R_0_idx+9*(t+1)+offset_r+j] = 0.5
-#             Q[-1, R_0_idx+9*t+j+3*i] = -0.5
-#             Q[R_0_idx+9*t+j+3*i, -1] = -0.5
-            
-#             prog_sdp.AddConstraint(Q.flatten() @ X.flatten() == 0)
+for i in range(d):  # Enforce first translation as 0
+    Q = np.zeros((np.shape(X)))
+    Q[-1, i] = 0.5
+    Q[i, -1] = 0.5
+    prog_sdp.AddConstraint(Q.flatten() @ X.flatten() == 0)
 
 # X ⪰ 0 Constraint
 prog_sdp.AddPositiveSemidefiniteConstraint(X)
