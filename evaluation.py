@@ -9,9 +9,7 @@ def fix_velocities(N, v_gt, Omega_gt):
     
     return v_gt, Omega_gt
 
-
-
-def compute_relaxation_gap(y_bar, t, v, R, p, Omega, t_gt, v_gt, R_gt, p_gt, Omega_gt, Sigma_p, Sigma_v, Sigma_omega):
+def compute_relaxation_gap(y_bar, t, v, R, p, Omega, t_gt, v_gt, R_gt, p_gt, Omega_gt, Sigma_p=1.0, Sigma_v=1.0, Sigma_omega=1.0):
     """
     Computes the relaxation gap between the solved values and ground truth values.
     (i.e. difference in cost value).
@@ -33,11 +31,11 @@ def compute_relaxation_gap(y_bar, t, v, R, p, Omega, t_gt, v_gt, R_gt, p_gt, Ome
     d = len(Omega[0]) 
     
     # Handle both integer and matrix covariances
-    if isinstance(Sigma_p, int):
+    if isinstance(Sigma_p, int) or isinstance(Sigma_p, float):
         Sigma_p = Sigma_p * np.eye(d)
-    if isinstance(Sigma_v, int):
+    if isinstance(Sigma_v, int) or isinstance(Sigma_v, float):
         Sigma_v = Sigma_v * np.eye(d)
-    if isinstance(Sigma_omega, int):
+    if isinstance(Sigma_omega, int) or isinstance(Sigma_omega, float):
         Sigma_omega = Sigma_omega * np.eye(d*d)
 
     v_gt, Omega_gt = fix_velocities(N, v_gt, Omega_gt)
@@ -88,7 +86,6 @@ def compute_relaxation_gap(y_bar, t, v, R, p, Omega, t_gt, v_gt, R_gt, p_gt, Ome
 
     return ground_truth_cost[0][0] - solved_cost[0][0]
 
-
 def compute_mean_errors(y_bar, t, v, R, p, Omega, t_gt, v_gt, R_gt, p_gt, Omega_gt):
     """
     Computes the mean error between the solved values and ground truth values.
@@ -118,18 +115,18 @@ def compute_mean_errors(y_bar, t, v, R, p, Omega, t_gt, v_gt, R_gt, p_gt, Omega_
     mean_errors = {}
     
     # Compute mean position error for `t`
-    mean_errors["t"] = np.mean(np.linalg.norm(t - t_gt, axis=1))
+    mean_errors["t"] = float(np.mean(np.linalg.norm(t - t_gt, axis=1)))
     
     # Compute mean velocity error for `v`
-    mean_errors["v"] = np.mean(np.linalg.norm(v - v_gt, axis=1))
+    mean_errors["v"] = float(np.mean(np.linalg.norm(v - v_gt, axis=1)))
     
     # Compute mean rotational error for `R`
-    mean_errors["R"] = np.mean([rotation_error_deg(R[i], R_gt[i]) for i in range(len(R))])
+    mean_errors["R"] = float(np.mean([rotation_error_deg(R[i], R_gt[i]) for i in range(len(R))]))
     
     # Compute mean landmark position error for `p`
-    mean_errors["p"] = np.mean(np.linalg.norm(p - p_gt, axis=1))
+    mean_errors["p"] = float(np.mean(np.linalg.norm(p - p_gt, axis=1)))
     
     # Compute mean rotational error for `Omega`
-    mean_errors["Omega"] = np.mean([rotation_error_deg(Omega[i], Omega_gt[i]) for i in range(len(Omega))])
+    mean_errors["Omega"] = float(np.mean([rotation_error_deg(Omega[i], Omega_gt[i]) for i in range(len(Omega))]))
     
     return mean_errors
