@@ -34,7 +34,7 @@ true_ang_vel = Rotation.from_euler("xyz", true_rpy_vel, degrees=True).as_matrix(
 true_lin_pos, true_ang_pos = generate_ground_truth(num_timesteps, true_lin_vel, true_ang_vel)
 print_ground_truth(true_ang_vel, true_ang_pos, true_landmarks, true_lin_vel, true_lin_pos)
 
-measurements = generate_measurements(true_lin_pos, true_ang_pos, true_landmarks, noise=noise, dropout=dropout)
+measurements = generate_measurements(true_lin_pos, true_ang_pos, true_landmarks, noise=0.1, dropout=0.1)
 
 
 calc_ang_vel, calc_ang_pos, calc_landmarks, calc_lin_vel, calc_lin_pos, rank, S = certifiable_solver(
