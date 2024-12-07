@@ -31,12 +31,13 @@ for key, text in texts.items():
     plt.figure(figsize=(10, 6))
     
     # Create side-by-side bars
-    width = (1 - 0.2) / len(files)
+    margin = 0.2
+    width = (1 - margin) / len(files)
     colors = ['r', 'b', 'g', 'c', 'm', 'y', 'gray']
     for i, file in enumerate(files):
         label = file[:-4]
         color = colors[i % len(colors)]
-        plt.bar(positions - 0.4 + width / 2 + i * width, averages[i][key], width, label=label, color=color, alpha=0.7)
+        plt.bar(positions - 0.5 + (margin + width) / 2 + i * width, averages[i][key], width, label=label, color=color, alpha=0.7)
     
     # Customize the plot
     plt.xticks(positions, labels=noise_levels, rotation=45)

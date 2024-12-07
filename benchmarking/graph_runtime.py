@@ -24,16 +24,17 @@ for file in timestep_files:
 # Number of landmarks and timesteps
 num_landmarks = [4, 8, 12, 16, 20, 24, 28]
 num_timesteps = [3, 5, 6, 7, 8, 9]
+positions = np.arange(len(num_landmarks))
 
 # Create side-by-side bars
-positions = np.arange(len(num_landmarks))
-width = (1 - 0.2) / len(landmark_files)
+margin = 0.2
+width = (1 - margin) / len(landmark_files)
 colors = ['r', 'b', 'g', 'c', 'm', 'y', 'gray']
 plt.figure(figsize=(10, 6))
 for i, file in enumerate(landmark_files):
     label = file[:-4]
     color = colors[i % len(colors)]
-    plt.bar(positions - 0.4 + width / 2 + i * width, averages_lm[i], width, label=label, color=color, alpha=0.7)
+    plt.bar(positions - 0.5 + (margin + width) / 2 + i * width, averages_lm[i], width, label=label, color=color, alpha=0.7)
 
 # Landmarks Timing Graph
 plt.xticks(positions, labels=num_landmarks, rotation=45)

@@ -27,7 +27,7 @@ trials = [
     },
 ]
 
-samples_per_noise = 5
+samples_per_noise = 10
 noise_levels = [0, 0.01, 0.05, 0.1, 0.5, 1.0, 2.0, 3.0]
 
 for trial in trials:
