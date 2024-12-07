@@ -3,6 +3,7 @@ from pydrake.all import (
     Solve,
     SolverOptions,
     MosekSolver,
+    QuadraticConstraint,
 )
 
 import numpy as np
@@ -44,13 +45,13 @@ z = [prog.NewContinuousVariables(d, f"z_{k}") for k in range(K)]   # Landmark ve
 def add_constraint_to_qcqp(name, constraint_binding):
     """
     Helper function to format a generic (quadratic) constraint into QCQP form by
-    adding to the `Q_constraint` and `b_constraint` arrays.
+    adding to the `Q_constraints`, `b_constraints`, and `c_constraits` lists.
     
     Args:
         constraint_binding: Binding<Constraint> object containing binding for the added constraint.
         
     Returns:
-        None; augments `Q_constraint` and `b_constraint` directly.
+        None; augments `Q_constraints`, `b_constraints`, and `c_constraints` directly.
     """
     Q_constraint = np.zeros((prog.num_vars(), prog.num_vars()))
     b_constraint = np.zeros(prog.num_vars())
@@ -59,23 +60,44 @@ def add_constraint_to_qcqp(name, constraint_binding):
     constraint = constraint_binding.evaluator()
     constraint_vars = constraint_binding.variables()
         
-    for j, v1 in enumerate(constraint_vars):
-        v1_idx = prog.FindDecisionVariableIndex(v1)
+    if isinstance(constraint, QuadraticConstraint):
+        for j, v1 in enumerate(constraint_vars):
+            v1_idx = prog.FindDecisionVariableIndex(v1)
 
-        for l, v2 in enumerate(constraint_vars):
-            v2_idx = prog.FindDecisionVariableIndex(v2)
+            
+            for l, v2 in enumerate(constraint_vars):
+                v2_idx = prog.FindDecisionVariableIndex(v2)
 
-            Q_constraint[v1_idx, v2_idx] += constraint.Q()[j, l]
+                Q_constraint[v1_idx, v2_idx] += constraint.Q()[j, l]
         
-        b_constraint[v1_idx] = constraint.b()[j]
+            b_constraint[v1_idx] = constraint.b()[j]
+            
+        assert constraint.lower_bound() == constraint.upper_bound()
+        c_constraint = -constraint.lower_bound()
         
-    assert constraint.lower_bound() == constraint.upper_bound()
-    c_constraint = -constraint.lower_bound()
+        constraint_names.append(name)
+        Q_constraints.append(Q_constraint)
+        b_constraints.append(b_constraint)
+        c_constraints.append(c_constraint)
         
-    constraint_names.append(name)
-    Q_constraints.append(Q_constraint)
-    b_constraints.append(b_constraint)
-    c_constraints.append(c_constraint)
+    else:  # LinearConstraint
+        A = constraint.GetDenseA()
+        assert constraint.lower_bound() == constraint.upper_bound()
+        
+        for i, row in enumerate(A):
+            Q_constraint = np.zeros((prog.num_vars(), prog.num_vars()))
+            b_constraint = np.zeros(prog.num_vars())
+            c_constraint = 0
+    
+            for j, v1 in enumerate(constraint_vars):
+                v1_idx = prog.FindDecisionVariableIndex(v1)
+                b_constraint[v1_idx] += A[i, j]
+                c_constraint = -constraint.lower_bound()
+                
+            constraint_names.append(f"{name}_{i}")
+            Q_constraints.append(Q_constraint)
+            b_constraints.append(b_constraint)
+            c_constraints.append(c_constraint)
         
     
 
@@ -230,6 +252,36 @@ for k in range(K):
     constraint_binding = prog.AddConstraint(sum(z[k][dim]**2 for dim in range(d)) == 0.25**2)
 
     add_constraint_to_qcqp(f"z_norm_{k}", constraint_binding)
+    
+# Anchoring p_0 instead of constraining landmark velocity norms seems to not be tight enough
+# Line:   -1.3759114409504916, 4.379050273436805, -4.824605254006949
+# Spiral: -4.5560243728017245, 0.7428061693090218, 3.9530390631487666
+
+# constraint_binding = prog.AddConstraint(p[0][0]*p[0][0] == (-1.3759114409504916)**2)
+# add_constraint_to_qcqp(f"p_0_{0}", constraint_binding)
+# constraint_binding = prog.AddConstraint(p[0][1]*p[0][1] == (4.379050273436805)**2)
+# add_constraint_to_qcqp(f"p_0_{1}", constraint_binding)
+# constraint_binding = prog.AddConstraint(p[0][2]*p[0][2] == (-4.824605254006949)**2)
+# add_constraint_to_qcqp(f"p_0_{2}", constraint_binding)
+# constraint_binding = prog.AddConstraint(p[0][0] == (-1.3759114409504916))
+# add_constraint_to_qcqp(f"p_0_{0}_homogenous", constraint_binding)
+# constraint_binding = prog.AddConstraint(p[0][1] == (4.379050273436805))
+# add_constraint_to_qcqp(f"p_0_{1}_homogenous", constraint_binding)
+# constraint_binding = prog.AddConstraint(p[0][2] == (-4.824605254006949))
+# add_constraint_to_qcqp(f"p_0_{2}_homogenous", constraint_binding)
+    
+# constraint_binding = prog.AddConstraint(p[0][0]*p[0][0] == (-4.5560243728017245)**2)
+# add_constraint_to_qcqp(f"p_0_{0}", constraint_binding)
+# constraint_binding = prog.AddConstraint(p[0][1]*p[0][1] == (0.7428061693090218)**2)
+# add_constraint_to_qcqp(f"p_0_{1}", constraint_binding)
+# constraint_binding = prog.AddConstraint(p[0][2]*p[0][2] == (3.9530390631487666)**2)
+# add_constraint_to_qcqp(f"p_0_{2}", constraint_binding)
+# constraint_binding = prog.AddConstraint(p[0][0] == (-4.5560243728017245))
+# add_constraint_to_qcqp(f"p_0_{0}_homogenous", constraint_binding)
+# constraint_binding = prog.AddConstraint(p[0][1] == (0.7428061693090218))
+# add_constraint_to_qcqp(f"p_0_{1}_homogenous", constraint_binding)
+# constraint_binding = prog.AddConstraint(p[0][2] == (3.9530390631487666))
+# add_constraint_to_qcqp(f"p_0_{2}_homogenous", constraint_binding)
 
 
 # Cost Function
@@ -466,10 +518,10 @@ if result.is_success():
     z_sol = []
     for i in range(N):
         t_sol.append(x_sol[d*i : d*(i+1)])
-        R_sol.append(x_sol[d*N + d*(N-1) + d*K + d*d*i : d*N + d*(N-1) + d*K + d*d*(i+1)].reshape((3,3)).T)
+        R_sol.append(x_sol[d*N + d*(N-1) + d*K + d*d*i : d*N + d*(N-1) + d*K + d*d*(i+1)].reshape((3,3)).T)  # No idea why this transpose is needed
     for i in range(N-1):
         v_sol.append(x_sol[d*N + d*i : d*N + d*(i+1)])
-        Omega_sol.append(x_sol[d*N + d*(N-1) + d*K + d*d*N + d*d*i : d*N + d*(N-1) + d*K + d*d*N + d*d*(i+1)].reshape((3,3)).T)
+        Omega_sol.append(x_sol[d*N + d*(N-1) + d*K + d*d*N + d*d*i : d*N + d*(N-1) + d*K + d*d*N + d*d*(i+1)].reshape((3,3)).T)  # No idea why this transpose is needed
     for k in range(K):
         p_sol.append(x_sol[d*N + d*(N-1) + d*k : d*N + d*(N-1) + d*(k+1)])
         z_sol.append(x_sol[d*N + d*(N-1) + d*K + d*d*N + d*d*(N-1) + d*k : d*N + d*(N-1) + d*K + d*d*N + d*d*(N-1) + d*(k+1)])

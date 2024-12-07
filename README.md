@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Certifiably-Optimal Kinematically Constrained Landmark-based SLAM
 
 ## Installation
@@ -22,6 +23,8 @@ pip install -r requirements.txt
 **Note:** If you are using MOSEK, you need to put the MOSEK license (obtained [here](https://www.mosek.com/products/academic-licenses/)) in `~/mosek/mosek.lic`.
 
 ### Drake Implementation
+
+**Note:** Mosek license needed. Also, Drake Mosek installation isn't trivial.
 
 ## Benchmarking
 

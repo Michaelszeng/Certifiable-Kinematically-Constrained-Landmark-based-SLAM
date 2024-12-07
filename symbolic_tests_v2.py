@@ -43,13 +43,13 @@ Omega = [prog.NewContinuousVariables(d, d, f"Ω_{i}") for i in range(N-1)]     #
 def add_constraint_to_qcqp(name, constraint_binding):
     """
     Helper function to format a generic (quadratic) constraint into QCQP form by
-    adding to the `Q_constraint` and `b_constraint` arrays.
+    adding to the `Q_constraints`, `b_constraints`, and `c_constraits` lists.
     
     Args:
         constraint_binding: Binding<Constraint> object containing binding for the added constraint.
         
     Returns:
-        None; augments `Q_constraint` and `b_constraint` directly.
+        None; augments `Q_constraints`, `b_constraints`, and `c_constraints` directly.
     """
     Q_constraint = np.zeros((prog.num_vars(), prog.num_vars()))
     b_constraint = np.zeros(prog.num_vars())
@@ -451,10 +451,10 @@ if result.is_success():
     p_sol = []
     for i in range(N):
         t_sol.append(x_sol[d*i : d*(i+1)])
-        R_sol.append(x_sol[d*N + d*(N-1) + d*K + d*d*i : d*N + d*(N-1) + d*K + d*d*(i+1)].reshape((3,3)).T)
+        R_sol.append(x_sol[d*N + d*(N-1) + d*K + d*d*i : d*N + d*(N-1) + d*K + d*d*(i+1)].reshape((3,3)).T)  # No idea why this transpose is needed
     for i in range(N-1):
         v_sol.append(x_sol[d*N + d*i : d*N + d*(i+1)])
-        Omega_sol.append(x_sol[d*N + d*(N-1) + d*K + d*d*N + d*d*i : d*N + d*(N-1) + d*K + d*d*N + d*d*(i+1)].reshape((3,3)).T)
+        Omega_sol.append(x_sol[d*N + d*(N-1) + d*K + d*d*N + d*d*i : d*N + d*(N-1) + d*K + d*d*N + d*d*(i+1)].reshape((3,3)).T)  # No idea why this transpose is needed
     for k in range(K):
         p_sol.append(x_sol[d*N + d*(N-1) + d*k : d*N + d*(N-1) + d*(k+1)])
     

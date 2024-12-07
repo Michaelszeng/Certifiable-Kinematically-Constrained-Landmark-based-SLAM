@@ -218,7 +218,7 @@ def visualize_results_3D(N, K, t, v, R, p, Omega, log=True, animate=False, gridl
     plt.show()
     
     
-def visualize_results_3D_moving_landmarks(N, K, t, v, R, p, Omega, z, log=True, animate=False, gridlines=True):
+def visualize_results_3D_moving_landmarks(N, K, t, v, R, p, Omega, z, log=True, animate=True, gridlines=True):
     """
     Plots the robot position and orientation, velocity, and moving landmark positions
     in 3D to help visualize optimization results.

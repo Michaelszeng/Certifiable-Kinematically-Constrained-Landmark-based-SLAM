@@ -8,15 +8,11 @@ from evaluation import compute_relaxation_gap, compute_mean_errors
 
 true_lin_vel = np.array([1, 0, 0.5])
 true_rpy_vel = np.array([0, 0, 45])
+true_lin_vel = np.array([1, 0, 0.5])
+true_rpy_vel = np.array([0, 0, 45])
 
-num_landmarks = 4
-num_timesteps = 4
-
-# Standard deviation of Gaussian noise
-noise = 0.0
-
-# Probability of measurement dropout
-dropout = 0.0
+num_landmarks = 8
+num_timesteps = 8
 
 # Velocity, angular velocity, and measurement covariances
 cov_v = 1
@@ -59,4 +55,4 @@ print(f"mean_errors: {mean_errors}")
 
 
 # Generate a new `testX.py` file to save this test case
-#generate_test_file("test_data/benchmark_LINE_N=10_K=10.py", measurements, true_lin_pos, true_lin_vel, true_landmarks, true_ang_pos, true_ang_vel)
+generate_test_file("test_data/benchmark_SPIRAL_N=8_K=8.py", measurements, true_lin_pos, true_lin_vel, true_landmarks, true_ang_pos, true_ang_vel)
