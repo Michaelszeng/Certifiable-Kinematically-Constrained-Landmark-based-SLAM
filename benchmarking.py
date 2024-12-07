@@ -8,8 +8,8 @@ from evaluation import compute_relaxation_gap, compute_mean_errors
 
 # TRIAL = "LINE_N=4_K=4"
 # TRIAL = "SPIRAL_N=4_K=4"
-TRIAL = "LINE_N=10_K=10"
-# TRIAL = "SPIRAL_N=10_K=10"
+TRIAL = "LINE_N=8_K=8"
+# TRIAL = "SPIRAL_N=8_K=8"
 
 print(f"{TRIAL}")
 time.sleep(3)
@@ -24,16 +24,16 @@ elif TRIAL == "SPIRAL_N=4_K=4":
     true_rpy_vel = np.array([0, 0, 45])
     num_landmarks = 4
     num_timesteps = 4
-elif TRIAL == "LINE_N=10_K=10":
+elif TRIAL == "LINE_N=8_K=8":
     true_lin_vel = np.array([1, 0, 0])
     true_rpy_vel = np.array([0, 0, 0])
-    num_landmarks = 10
-    num_timesteps = 10
-elif TRIAL == "SPIRAL_N=10_K=10":
+    num_landmarks = 8
+    num_timesteps = 8
+elif TRIAL == "SPIRAL_N=8_K=8":
     true_lin_vel = np.array([1, 0, 0.5])
     true_rpy_vel = np.array([0, 0, 45])
-    num_landmarks = 10
-    num_timesteps = 10
+    num_landmarks = 8
+    num_timesteps = 8
     
     
 samples_per_noise = 10
@@ -70,7 +70,7 @@ for noise in noise_levels:
 
         measurements = generate_measurements(true_lin_pos, true_ang_pos, true_landmarks, noise=noise)
         
-        print(f"\nBEGINNING TRIAL {_}\n")
+        print(f"\nBEGINNING NOISE LEVEL {noise} TRIAL {_}\n")
         calc_ang_vel, calc_ang_pos, calc_landmarks, calc_lin_vel, calc_lin_pos, rank, S = certifiable_solver(measurements)
         print_results(calc_ang_vel, calc_ang_pos, calc_landmarks, calc_lin_vel, calc_lin_pos, rank, S)
 
@@ -150,7 +150,7 @@ plt.savefig(f"benchmark_rank_{TRIAL}.png", dpi=300)  # Save as PNG
 
 
 
-TRIAL = "SPIRAL_N=10_K=10"
+TRIAL = "SPIRAL_N=8_K=8"
 
 print(f"{TRIAL}")
 time.sleep(3)
@@ -165,16 +165,16 @@ elif TRIAL == "SPIRAL_N=4_K=4":
     true_rpy_vel = np.array([0, 0, 45])
     num_landmarks = 4
     num_timesteps = 4
-elif TRIAL == "LINE_N=10_K=10":
+elif TRIAL == "LINE_N=8_K=8":
     true_lin_vel = np.array([1, 0, 0])
     true_rpy_vel = np.array([0, 0, 0])
-    num_landmarks = 10
-    num_timesteps = 10
-elif TRIAL == "SPIRAL_N=10_K=10":
+    num_landmarks = 8
+    num_timesteps = 8
+elif TRIAL == "SPIRAL_N=8_K=8":
     true_lin_vel = np.array([1, 0, 0.5])
     true_rpy_vel = np.array([0, 0, 45])
-    num_landmarks = 10
-    num_timesteps = 10
+    num_landmarks = 8
+    num_timesteps = 8
     
     
 samples_per_noise = 10
@@ -201,7 +201,6 @@ for noise in noise_levels:
         "Omega": [],
     }
     ranks = []
-    print(f"Noise: {noise}\n")
     for _ in range(samples_per_noise):
         true_landmarks = np.random.uniform(-10, 10, size=(num_landmarks, 3))
         true_ang_vel = Rotation.from_euler("xyz", true_rpy_vel, degrees=True).as_matrix()
@@ -211,7 +210,7 @@ for noise in noise_levels:
 
         measurements = generate_measurements(true_lin_pos, true_ang_pos, true_landmarks, noise=noise)
         
-        print(f"\nBEGINNING TRIAL {_}\n")
+        print(f"\nBEGINNING NOISE LEVEL {noise} TRIAL {_}\n")
         calc_ang_vel, calc_ang_pos, calc_landmarks, calc_lin_vel, calc_lin_pos, rank, S = certifiable_solver(measurements)
         print_results(calc_ang_vel, calc_ang_pos, calc_landmarks, calc_lin_vel, calc_lin_pos, rank, S)
 

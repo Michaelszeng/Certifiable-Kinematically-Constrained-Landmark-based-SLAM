@@ -6,11 +6,11 @@ from solver_utils import *
 from visualization_utils import visualize_results
 from evaluation import compute_relaxation_gap, compute_mean_errors
 
-true_lin_vel = np.array([1, 0, 0])
-true_rpy_vel = np.array([0, 0, 0])
+true_lin_vel = np.array([1, 0, 0.5])
+true_rpy_vel = np.array([0, 0, 45])
 
-num_landmarks = 10
-num_timesteps = 10
+num_landmarks = 8
+num_timesteps = 8
 
 # Velocity, angular velocity, and measurement covariances
 cov_v = 1
@@ -53,4 +53,4 @@ measurements = generate_measurements(true_lin_pos, true_ang_pos, true_landmarks,
 
 
 # Generate a new `testX.py` file to save this test case
-generate_test_file("test_data/benchmark_LINE_N=10_K=10.py", measurements, true_lin_pos, true_lin_vel, true_landmarks, true_ang_pos, true_ang_vel)
+generate_test_file("test_data/benchmark_SPIRAL_N=8_K=8.py", measurements, true_lin_pos, true_lin_vel, true_landmarks, true_ang_pos, true_ang_vel)
