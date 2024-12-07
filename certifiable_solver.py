@@ -68,7 +68,8 @@ def certifiable_solver(measurements, verbose=False, tol=1e-6, cov_v=1, cov_omega
             A = np.zeros((dim_x, dim_x))
             A[i, j] = A[j, i] = 1 if i == j else 0.5
             if i % 9 in {0, 4, 8} and j % 9 in {0, 4, 8} and 9*N-9 <= j < 9*N:
-                constraints.append(cp.trace(A @ X) == 1)
+                A[-1, -1] = -1
+                constraints.append(cp.trace(A @ X) == 0)
             elif i % 9 not in {0, 4, 8} or 9*N-9 <= j < 9*N:
                 constraints.append(cp.trace(A @ X) == 0)
 
@@ -87,14 +88,18 @@ def certifiable_solver(measurements, verbose=False, tol=1e-6, cov_v=1, cov_omega
                 for k in range(3):
                     A[9*(N+t-1)+3*i+k, 9*(N+t-1)+3*j+k] = 1 if 3*i+k == 3*j+k else 0.5
                     A[9*(N+t-1)+3*j+k, 9*(N+t-1)+3*i+k] = 1 if 3*i+k == 3*j+k else 0.5
-                constraints.append(cp.trace(A @ X) == (i == j))
+                if i == j:
+                    A[-1, -1] = -1
+                constraints.append(cp.trace(A @ X) == 0)
 
                 # R^TR=I constraints
                 A = np.zeros((dim_x, dim_x))
                 for k in range(3):
                     A[9*(N+t-1)+i+3*k, 9*(N+t-1)+j+3*k] = 1 if i+3*k == j+3*k else 0.5
                     A[9*(N+t-1)+j+3*k, 9*(N+t-1)+i+3*k] = 1 if i+3*k == j+3*k else 0.5
-                constraints.append(cp.trace(A @ X) == (i == j))
+                if i == j:
+                    A[-1, -1] = -1
+                constraints.append(cp.trace(A @ X) == 0)
  
     for t in range(N):
         for i in range(3):
@@ -104,14 +109,18 @@ def certifiable_solver(measurements, verbose=False, tol=1e-6, cov_v=1, cov_omega
                 for k in range(3):
                     A[9*t+3*i+k, 9*t+3*j+k] = 1 if 3*i+k == 3*j+k else 0.5
                     A[9*t+3*j+k, 9*t+3*i+k] = 1 if 3*i+k == 3*j+k else 0.5
-                constraints.append(cp.trace(A @ X) == (i == j))
+                if i == j:
+                    A[-1, -1] = -1
+                constraints.append(cp.trace(A @ X) == 0)
 
                 # Omega^TOmega=I constraints
                 A = np.zeros((dim_x, dim_x))
                 for k in range(3):
                     A[9*t+i+3*k, 9*t+j+3*k] = 1 if i+3*k == j+3*k else 0.5
                     A[9*t+j+3*k, 9*t+i+3*k] = 1 if i+3*k == j+3*k else 0.5
-                constraints.append(cp.trace(A @ X) == (i == j))
+                if i == j:
+                    A[-1, -1] = -1
+                constraints.append(cp.trace(A @ X) == 0)
 
     # Translation odometry constraints
     for t in range(N - 1):
@@ -132,8 +141,8 @@ def certifiable_solver(measurements, verbose=False, tol=1e-6, cov_v=1, cov_omega
         for j in range(3):
             for i in range(3):
                 A = np.zeros((dim_x, dim_x))
-                offsets = [(-9, 0), (-8, 3), (-7, 6)]       # Offset for R_t, Omega_t
-                next_offsets = [(9, 9), (10, 10), (11, 11)] # Offset for R_{t+2}, Omega_{t+1}
+                offsets = [(-9, 0), (-8, 3), (-7, 6)]       # Offsets for R_t, Omega_t
+                next_offsets = [(9, 9), (10, 10), (11, 11)] # Offsets for R_{t+2}, Omega_{t+1}
                 for offset_r, offset_o in offsets:
                     A[9*(N+t)+offset_r+3*j, 9*t+offset_o+i] = 0.5
                     A[9*t+offset_o+i, 9*(N+t)+offset_r+3*j] = 0.5
@@ -151,9 +160,8 @@ def certifiable_solver(measurements, verbose=False, tol=1e-6, cov_v=1, cov_omega
         A[-1, i] = 0.5
         A[i, -1] = 0.5
         if i % 9 in {0, 4, 8}:
-            constraints.append(cp.trace(A @ X) == 1)
-        else:
-            constraints.append(cp.trace(A @ X) == 0)
+            A[-1, -1] = 1
+        constraints.append(cp.trace(A @ X) == 0)
 
     # Redundant rotation odometry constraints
     for t in range(N - 1):

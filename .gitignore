@@ -241,3 +241,4 @@ fabric.properties
 *.csv
 test_data/
 *.npy
+*.png
