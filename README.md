@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # Certifiably-Optimal Kinematically Constrained Landmark-based SLAM
 
 ## Installation
