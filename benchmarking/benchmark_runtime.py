@@ -23,9 +23,9 @@ trials = [
     },
 ]
 
-samples_per_noise = 10
-num_landmarks = [4, 8, 12, 16, 20, 24, 28]
-num_timesteps = [3, 5, 6, 7, 8, 9]
+samples_per_noise = 2
+num_landmarks = [4, 8, 12, 16, 20, 24]
+num_timesteps = [3, 4, 5, 6, 7, 8]
 
 for trial in trials:
     name = trial["name"]
