@@ -6,13 +6,25 @@ from solver_utils import *
 from visualization_utils import visualize_results
 from evaluation import compute_relaxation_gap, compute_mean_errors
 
-true_lin_vel = np.array([1, 0, 0.5])
-true_rpy_vel = np.array([0, 0, 45])
-true_lin_vel = np.array([1, 0, 0.5])
-true_rpy_vel = np.array([0, 0, 45])
+true_lin_vel = np.array([1, 0, 0])
+true_rpy_vel = np.array([
+    [0, 0, 0],
+    [0, 0, 10],
+    [0, 0, 20],
+    [0, 0, 10],
+    [0, 0, -10],
+    [0, 0, -20],
+    [0, 0, -10],
+])
 
-num_landmarks = 8
+num_landmarks = 4
 num_timesteps = 8
+
+# Standard deviation of Gaussian noise
+noise = 0.0
+
+# Probability of measurement dropout
+dropout = 0.0
 
 # Velocity, angular velocity, and measurement covariances
 cov_v = 1
