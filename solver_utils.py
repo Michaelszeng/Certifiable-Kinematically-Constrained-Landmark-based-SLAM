@@ -7,7 +7,10 @@ def generate_ground_truth(num_timesteps, true_lin_vel, true_ang_vel):
 
     for i in range(1, num_timesteps):
         lin_pos[i] = lin_pos[i-1] + ang_pos[i-1] @ true_lin_vel
-        ang_pos[i] = ang_pos[i-1] @ true_ang_vel
+        if true_ang_vel.shape == (3,):
+            ang_pos[i] = ang_pos[i-1] @ true_ang_vel
+        else:
+            ang_pos[i] = ang_pos[i-1] @ true_ang_vel[i-1]
 
     return lin_pos, ang_pos
 

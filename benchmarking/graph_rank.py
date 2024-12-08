@@ -5,8 +5,8 @@ import matplotlib.pyplot as plt
 files = [
     "spiral_small_rank.npy",
     "line_small_rank.npy",
-    #"spiral_large_rank.npy",
-    #"line_large_rank.npy",
+    "spiral_large_rank.npy",
+    "line_large_rank.npy",
     "curve_rank.npy",
 ]
 
