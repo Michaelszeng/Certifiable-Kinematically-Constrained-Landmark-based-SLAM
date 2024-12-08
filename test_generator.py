@@ -6,7 +6,12 @@ from solver_utils import *
 from visualization_utils import visualize_results
 from evaluation import compute_relaxation_gap, compute_mean_errors
 
-true_lin_vel = np.array([1, 0, 0])
+true_lin_vel = np.array([1, 0, 0.5])
+true_rpy_vel = np.array([0, 0, 20])
+num_landmarks = 4
+num_timesteps = 4
+
+# Uncomment this for the non-constant velocity case
 true_rpy_vel = np.array([
     [0, 0, 0],
     [0, 0, 10],
@@ -16,7 +21,6 @@ true_rpy_vel = np.array([
     [0, 0, -20],
     [0, 0, -10],
 ])
-
 num_landmarks = 4
 num_timesteps = 8
 
