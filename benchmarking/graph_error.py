@@ -7,6 +7,7 @@ files = [
     "line_small_error.npy",
     "spiral_large_error.npy",
     "line_large_error.npy",
+    "curve_error.npy",
 ]
 
 # Load the .npy files

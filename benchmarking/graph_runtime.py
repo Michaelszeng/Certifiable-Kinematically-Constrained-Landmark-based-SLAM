@@ -22,8 +22,8 @@ for file in timestep_files:
     averages_t.append(np.load(file))
 
 # Number of landmarks and timesteps
-num_landmarks = [4, 8, 12, 16, 20, 24, 28]
-num_timesteps = [3, 5, 6, 7, 8, 9]
+num_landmarks = [4, 8, 12, 16, 20, 24]
+num_timesteps = [3, 4, 5, 6, 7, 8]
 positions = np.arange(len(num_landmarks))
 
 # Create side-by-side bars

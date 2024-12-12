@@ -11,11 +11,11 @@ from certifiable_solver import certifiable_solver
 from solver_utils import *
 
 trials = [
-    {
-        "name": "line_small",
-        "true_lin_vel": np.array([1, 0, 0]),
-        "true_rpy_vel": np.array([0, 0, 0]),
-    },
+#    {
+#        "name": "line_small",
+#        "true_lin_vel": np.array([1, 0, 0]),
+#        "true_rpy_vel": np.array([0, 0, 0]),
+#    },
     {
         "name": "spiral_small",
         "true_lin_vel": np.array([1, 0, 0.5]),
@@ -23,9 +23,9 @@ trials = [
     },
 ]
 
-samples_per_noise = 10
-num_landmarks = [4, 8, 12, 16, 20, 24, 28]
-num_timesteps = [3, 5, 6, 7, 8, 9]
+samples_per_noise = 2
+num_landmarks = [4, 8, 12, 16, 20, 24]
+num_timesteps = [3, 4, 5, 6, 7, 8]
 
 for trial in trials:
     name = trial["name"]

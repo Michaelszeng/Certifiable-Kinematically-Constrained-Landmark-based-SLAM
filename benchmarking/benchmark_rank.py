@@ -24,6 +24,21 @@ trials = [
         "num_landmarks": 4,
         "num_timesteps": 4,
     },
+    {
+        "name": "curve",
+        "true_lin_vel": np.array([1, 0, 0]),
+        "true_rpy_vel": np.array([
+            [0, 0, 0],
+            [0, 0, 10],
+            [0, 0, 20],
+            [0, 0, 10],
+            [0, 0, -10],
+            [0, 0, -20],
+            [0, 0, -10],
+        ]),
+        "num_landmarks": 4,
+        "num_timesteps": 8,
+    },
 ]
 
 samples_per_noise = 10
