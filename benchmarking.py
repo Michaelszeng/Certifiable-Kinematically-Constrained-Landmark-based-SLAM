@@ -8,8 +8,8 @@ from evaluation import compute_relaxation_gap, compute_mean_errors
 
 # TRIAL = "LINE_N=4_K=4"
 # TRIAL = "SPIRAL_N=4_K=4"
-TRIAL = "LINE_N=8_K=8"
-# TRIAL = "SPIRAL_N=8_K=8"
+# TRIAL = "LINE_N=8_K=8"
+TRIAL = "SPIRAL_N=8_K=8"
 
 print(f"{TRIAL}")
 time.sleep(3)
@@ -114,7 +114,7 @@ for key, text in texts.items():
     plt.show()
 
     # Save as an image file
-    plt.savefig(f"benchmark_{key}_{TRIAL}.png", dpi=300)  # Save as PNG
+    # plt.savefig(f"benchmark_{key}_{TRIAL}.png", dpi=300)  # Save as PNG
 
 
 # Rank plot
@@ -130,4 +130,4 @@ plt.tight_layout()
 plt.show()
 
 # Save as an image file
-plt.savefig(f"benchmark_rank_{TRIAL}.png", dpi=300)  # Save as PNG
+# plt.savefig(f"benchmark_rank_{TRIAL}.png", dpi=300)  # Save as PNG
