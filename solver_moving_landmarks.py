@@ -3,7 +3,7 @@ from pydrake.all import (
     Solve,
     SolverOptions,
     MosekSolver,
-    CommonSolverOption,
+    QuadraticConstraint,
 )
 
 import numpy as np
@@ -23,6 +23,7 @@ def solver(y_bar, N, K, d, verbose=True, tol=1e-3, cov_v=1, cov_omega=1, cov_mea
     ################################################################################
     ##### LEAST SQUARES FORMULATION
     ################################################################################
+
     prog = MathematicalProgram()
 
     # Variable Definitions
@@ -32,6 +33,7 @@ def solver(y_bar, N, K, d, verbose=True, tol=1e-3, cov_v=1, cov_omega=1, cov_mea
     p = [prog.NewContinuousVariables(d, f"p_{k}") for k in range(K)]                # Landmark positions p_k
     R = [prog.NewContinuousVariables(d, d, f"R_{i}") for i in range(N)]             # Rotations R_i
     Omega = [prog.NewContinuousVariables(d, d, f"Ω_{i}") for i in range(N-1)]     # Angular velocities Ω_i
+    z = [prog.NewContinuousVariables(d, f"z_{k}") for k in range(K)]   # Landmark velocities v_k
 
 
     def add_constraint_to_qcqp(name, constraint_binding):
@@ -52,23 +54,44 @@ def solver(y_bar, N, K, d, verbose=True, tol=1e-3, cov_v=1, cov_omega=1, cov_mea
         constraint = constraint_binding.evaluator()
         constraint_vars = constraint_binding.variables()
             
-        for j, v1 in enumerate(constraint_vars):
-            v1_idx = prog.FindDecisionVariableIndex(v1)
+        if isinstance(constraint, QuadraticConstraint):
+            for j, v1 in enumerate(constraint_vars):
+                v1_idx = prog.FindDecisionVariableIndex(v1)
 
-            for l, v2 in enumerate(constraint_vars):
-                v2_idx = prog.FindDecisionVariableIndex(v2)
+                
+                for l, v2 in enumerate(constraint_vars):
+                    v2_idx = prog.FindDecisionVariableIndex(v2)
 
-                Q_constraint[v1_idx, v2_idx] += constraint.Q()[j, l]
+                    Q_constraint[v1_idx, v2_idx] += constraint.Q()[j, l]
             
-            b_constraint[v1_idx] = constraint.b()[j]
+                b_constraint[v1_idx] = constraint.b()[j]
+                
+            assert constraint.lower_bound() == constraint.upper_bound()
+            c_constraint = -constraint.lower_bound()
             
-        assert constraint.lower_bound() == constraint.upper_bound()
-        c_constraint = -constraint.lower_bound()
+            constraint_names.append(name)
+            Q_constraints.append(Q_constraint)
+            b_constraints.append(b_constraint)
+            c_constraints.append(c_constraint)
             
-        constraint_names.append(name)
-        Q_constraints.append(Q_constraint)
-        b_constraints.append(b_constraint)
-        c_constraints.append(c_constraint)
+        else:  # LinearConstraint
+            A = constraint.GetDenseA()
+            assert constraint.lower_bound() == constraint.upper_bound()
+            
+            for i, row in enumerate(A):
+                Q_constraint = np.zeros((prog.num_vars(), prog.num_vars()))
+                b_constraint = np.zeros(prog.num_vars())
+                c_constraint = 0
+        
+                for j, v1 in enumerate(constraint_vars):
+                    v1_idx = prog.FindDecisionVariableIndex(v1)
+                    b_constraint[v1_idx] += A[i, j]
+                    c_constraint = -constraint.lower_bound()
+                    
+                constraint_names.append(f"{name}_{i}")
+                Q_constraints.append(Q_constraint)
+                b_constraints.append(b_constraint)
+                c_constraints.append(c_constraint)
             
         
 
@@ -99,6 +122,8 @@ def solver(y_bar, N, K, d, verbose=True, tol=1e-3, cov_v=1, cov_omega=1, cov_mea
                 v2_idx = prog.FindDecisionVariableIndex(v2)
 
                 Q_cost[v1_idx, v2_idx] += cost.Q()[j, l]
+                
+            b_cost[v1_idx] += cost.b()[j]
         
 
     # Constraint Definitions
@@ -215,11 +240,48 @@ def solver(y_bar, N, K, d, verbose=True, tol=1e-3, cov_v=1, cov_omega=1, cov_mea
         constraint_binding = prog.AddConstraint(t[0][dim] * t[0][dim] == 0)
         
         add_constraint_to_qcqp(f"t_initial_{row}_{col}", constraint_binding)
+        
+    # 7: 0.25 norm on landmark velocties
+    for k in range(K):   
+        constraint_binding = prog.AddConstraint(sum(z[k][dim]**2 for dim in range(d)) == 0.25**2)
+
+        add_constraint_to_qcqp(f"z_norm_{k}", constraint_binding)
+        
+    # Anchoring p_0 instead of constraining landmark velocity norms seems to not be tight enough
+    # Line:   -1.3759114409504916, 4.379050273436805, -4.824605254006949
+    # Spiral: -4.5560243728017245, 0.7428061693090218, 3.9530390631487666
+
+    # constraint_binding = prog.AddConstraint(p[0][0]*p[0][0] == (-1.3759114409504916)**2)
+    # add_constraint_to_qcqp(f"p_0_{0}", constraint_binding)
+    # constraint_binding = prog.AddConstraint(p[0][1]*p[0][1] == (4.379050273436805)**2)
+    # add_constraint_to_qcqp(f"p_0_{1}", constraint_binding)
+    # constraint_binding = prog.AddConstraint(p[0][2]*p[0][2] == (-4.824605254006949)**2)
+    # add_constraint_to_qcqp(f"p_0_{2}", constraint_binding)
+    # constraint_binding = prog.AddConstraint(p[0][0] == (-1.3759114409504916))
+    # add_constraint_to_qcqp(f"p_0_{0}_homogenous", constraint_binding)
+    # constraint_binding = prog.AddConstraint(p[0][1] == (4.379050273436805))
+    # add_constraint_to_qcqp(f"p_0_{1}_homogenous", constraint_binding)
+    # constraint_binding = prog.AddConstraint(p[0][2] == (-4.824605254006949))
+    # add_constraint_to_qcqp(f"p_0_{2}_homogenous", constraint_binding)
+        
+    # constraint_binding = prog.AddConstraint(p[0][0]*p[0][0] == (-4.5560243728017245)**2)
+    # add_constraint_to_qcqp(f"p_0_{0}", constraint_binding)
+    # constraint_binding = prog.AddConstraint(p[0][1]*p[0][1] == (0.7428061693090218)**2)
+    # add_constraint_to_qcqp(f"p_0_{1}", constraint_binding)
+    # constraint_binding = prog.AddConstraint(p[0][2]*p[0][2] == (3.9530390631487666)**2)
+    # add_constraint_to_qcqp(f"p_0_{2}", constraint_binding)
+    # constraint_binding = prog.AddConstraint(p[0][0] == (-4.5560243728017245))
+    # add_constraint_to_qcqp(f"p_0_{0}_homogenous", constraint_binding)
+    # constraint_binding = prog.AddConstraint(p[0][1] == (0.7428061693090218))
+    # add_constraint_to_qcqp(f"p_0_{1}_homogenous", constraint_binding)
+    # constraint_binding = prog.AddConstraint(p[0][2] == (3.9530390631487666))
+    # add_constraint_to_qcqp(f"p_0_{2}_homogenous", constraint_binding)
 
 
     # Cost Function
     # Cost is of the form: 1/2 x^T Q_cost x
     Q_cost = np.zeros((prog.num_vars(), prog.num_vars()))
+    b_cost = np.zeros(prog.num_vars())
 
     # 1. Landmark Residuals
     for k in range(K):
@@ -227,11 +289,11 @@ def solver(y_bar, N, K, d, verbose=True, tol=1e-3, cov_v=1, cov_omega=1, cov_mea
             # R[j] @ y_bar[k][j]
             Rj_y = [sum(R[j][row, m] * y_bar_kj[m] for m in range(d)) for row in range(d)]
             
-            # (p[k] - t[j])
-            p_minus_t = [p[k][dim] - t[j][dim] for dim in range(d)]
+            # ((p[k] + z[k]*j) - t[j])
+            p_z_minus_t = [p[k][dim] + z[k][dim]*j - t[j][dim] for dim in range(d)]
             
-            # Residual: R[j] @ y_bar[k][j] - (p[k] - t[j])
-            residual = [Rj_y[row] - p_minus_t[row] for row in range(d)]
+            # Residual: R[j] @ y_bar[k][j] - ((p[k] + z[k]*j) - t[j])
+            residual = [Rj_y[row] - p_z_minus_t[row] for row in range(d)]
             
             # Quadratic form: residual^T * Sigma_p * residual
             quad_form = 0.0
@@ -241,7 +303,7 @@ def solver(y_bar, N, K, d, verbose=True, tol=1e-3, cov_v=1, cov_omega=1, cov_mea
             
             cost_binding = prog.AddCost(quad_form)
             
-            add_cost_to_qcqp(cost_binding)
+            add_cost_to_qcqp(cost_binding)    
             
     # 2. Velocity Differences
     for i in range(N - 2):
@@ -272,7 +334,7 @@ def solver(y_bar, N, K, d, verbose=True, tol=1e-3, cov_v=1, cov_omega=1, cov_mea
         cost_binding = prog.AddCost(quad_form_omega)
         
         add_cost_to_qcqp(cost_binding)
-
+        
 
     ################################################################################
     ##### CONVEX SDP RELAXATION
@@ -361,8 +423,6 @@ def solver(y_bar, N, K, d, verbose=True, tol=1e-3, cov_v=1, cov_omega=1, cov_mea
     print(f"Number of constraints in SDP: {len(prog_sdp.GetAllConstraints())}")
 
     sdp_solver_options = SolverOptions()
-    if verbose:  # Not working
-        sdp_solver_options.SetOption(CommonSolverOption.kPrintToConsole, 1)
     mosek_solver = MosekSolver()
     if not mosek_solver.available():
         print("WARNING: MOSEK unavailable.")
@@ -397,6 +457,7 @@ def solver(y_bar, N, K, d, verbose=True, tol=1e-3, cov_v=1, cov_omega=1, cov_mea
         R_sol = []
         Omega_sol = []
         p_sol = []
+        z_sol = []
         for i in range(N):
             t_sol.append(x_sol[d*i : d*(i+1)])
             R_sol.append(x_sol[d*N + d*(N-1) + d*K + d*d*i : d*N + d*(N-1) + d*K + d*d*(i+1)].reshape((3,3)).T)  # No idea why this transpose is needed
@@ -405,13 +466,9 @@ def solver(y_bar, N, K, d, verbose=True, tol=1e-3, cov_v=1, cov_omega=1, cov_mea
             Omega_sol.append(x_sol[d*N + d*(N-1) + d*K + d*d*N + d*d*i : d*N + d*(N-1) + d*K + d*d*N + d*d*(i+1)].reshape((3,3)).T)  # No idea why this transpose is needed
         for k in range(K):
             p_sol.append(x_sol[d*N + d*(N-1) + d*k : d*N + d*(N-1) + d*(k+1)])
-        t_sol = np.array(t_sol)
-        v_sol = np.array(v_sol)
-        R_sol = np.array(R_sol)
-        Omega_sol = np.array(Omega_sol)
-        p_sol = np.array(p_sol)
+            z_sol.append(x_sol[d*N + d*(N-1) + d*K + d*d*N + d*d*(N-1) + d*k : d*N + d*(N-1) + d*K + d*d*N + d*d*(N-1) + d*(k+1)])
         
-        return Omega_sol, R_sol, p_sol, v_sol, t_sol, rank, S
+        return Omega_sol, R_sol, p_sol, v_sol, t_sol, z_sol, rank, S
         
     else:
         print("solve failed.")

@@ -16,11 +16,12 @@ class Solver(Enum):
     drake1 = 2
     drake2 = 3
     nonlinear = 4
+    moving_landmarks = 5
 
 ################################################################################
 ##### USER-DEFINED PARAMETERS ##################################################
 ################################################################################
-SOLVER = Solver.nonlinear  # Select a solver from the Solver enums
+SOLVER = Solver.cvxpy  # Select a solver from the Solver enums
 
 if SOLVER == Solver.nonlinear:
     def initial_guesses():
@@ -34,7 +35,8 @@ if SOLVER == Solver.nonlinear:
         p_guess = p_gt + np.random.normal(loc=0, scale=0.1, size=p_gt.shape)
         return t_guess, R_guess, v_guess, Omega_guess, p_guess
 
-PRESET_TEST = None  # i.e. "test1"; Set to None to generate a newtest case with random landmark locations, or set to a specific test file to run that test case
+PRESET_TEST = "temp"  # i.e. "test1"; Set to None to generate a new test case with random landmark locations, or set to a specific test file name (without directory names) to run that test case
+# NOTE: if SOLVER == Solver.moving_landmarks, you can only use preset tests in the "moving_landmark_tests" folder.
 
 MEASUREMENT_NOISE = 0.01         # Standard deviation of Gaussian noise added to measurements
 MEASUREMENT_DROPOUT = 0.01       # Probability of measurements being dropped (to simulate occlusions or object detection failures)
@@ -48,7 +50,7 @@ if PRESET_TEST is None:
     velocity_trajectory = np.array([[1, 0, 0.5]]*(N-1))
     angular_velocity_trajectory = np.array([[0, 0, 45]]*(N-1))  # RPY angular velocity in degrees
 
-    # Example: Snake trajectory
+    # # Example: Snake trajectory
     # K = 4  # Number of landmarks
     # N = 8  # Number of timesteps
     # d = 3  # Number of dimensions of space
@@ -76,6 +78,14 @@ if PRESET_TEST is None:
 ################################################################################
 ################################################################################
 
+
+
+# Create path to test files
+current_folder = os.path.dirname(os.path.abspath(__file__))
+tests_path = os.path.join(current_folder, "tests")
+if SOLVER == Solver.moving_landmarks:
+    tests_path = os.path.join(tests_path, "moving_landmark_tests")
+        
 # Generate Test Case Data
 if PRESET_TEST is None:
     x_coords = np.random.uniform(x_range[0], x_range[1], size=K)
@@ -87,14 +97,18 @@ if PRESET_TEST is None:
 
     v_gt = velocity_trajectory
     t_gt, R_gt = generate_ground_truth(N, v_gt, Omega_gt)
-    print_ground_truth(Omega_gt, R_gt, p_gt, v_gt, t_gt)
-
-    y_bar = generate_measurements(t_gt, R_gt, p_gt, noise=MEASUREMENT_NOISE, dropout=MEASUREMENT_DROPOUT)
+    
+    if SOLVER == Solver.moving_landmarks:
+        z_gt = np.random.uniform(-0.5, 0.5, size=(K, 3))  # Random landmark velocities
+        z_gt = 0.25*(z_gt / np.linalg.norm(z_gt, axis=1, keepdims=True))  # all velocities are 0.25 in magnitude
+        print_ground_truth_moving_landmarks(Omega_gt, R_gt, p_gt, v_gt, t_gt, z_gt)
+        y_bar = generate_measurements_moving_landmarks(t_gt, R_gt, p_gt, z_gt, noise=MEASUREMENT_NOISE, dropout=MEASUREMENT_DROPOUT)
+    else:
+        print_ground_truth(Omega_gt, R_gt, p_gt, v_gt, t_gt)
+        y_bar = generate_measurements(t_gt, R_gt, p_gt, noise=MEASUREMENT_NOISE, dropout=MEASUREMENT_DROPOUT)
 else:
     # Dynamically import the specified test file
-    current_folder = os.path.dirname(os.path.abspath(__file__))
-    test_data_path = os.path.join(current_folder, "test_data")
-    sys.path.append(test_data_path)
+    sys.path.append(tests_path)
     test_module = importlib.import_module(PRESET_TEST)
     # Import all variables and functions into the current namespace
     globals().update(vars(test_module))
@@ -110,17 +124,25 @@ elif SOLVER == Solver.drake2:
     from solver_drake2 import solver
 elif SOLVER == Solver.nonlinear:    
     from solver_nonlinear import solver
+elif SOLVER == Solver.moving_landmarks:
+    from solver_moving_landmarks import solver
 
-# Give initial guesses to the nonlinear solver
+z = None
 if SOLVER == Solver.nonlinear:
+    # Give initial guesses to the nonlinear solver
     t_guess, R_guess, v_guess, Omega_guess, p_guess = initial_guesses()
     Omega, R, p, v, t, rank, S = solver(y_bar, N, K, d, verbose=False, cov_v=cov_v, cov_omega=cov_omega, cov_meas=cov_meas, t_guess=t_guess, R_guess=R_guess, v_guess=v_guess, Omega_guess=Omega_guess, p_guess=p_guess)
+elif SOLVER == Solver.moving_landmarks:
+    Omega, R, p, v, t, z, rank, S = solver(y_bar, N, K, d, verbose=False, cov_v=cov_v, cov_omega=cov_omega, cov_meas=cov_meas)
 else:
     Omega, R, p, v, t, rank, S = solver(y_bar, N, K, d, verbose=False, cov_v=cov_v, cov_omega=cov_omega, cov_meas=cov_meas)
-    
+
 # Process Results
 print_results(Omega, R, p, v, t, rank, S)
-visualize_results(N, K, t, v, R, p, Omega, log=False)
+if z:
+    visualize_results(N, K, t, v, R, p, Omega, z, log=False)
+else:
+    visualize_results(N, K, t, v, R, p, Omega, log=False)
 
 time.sleep(0.1)  # Let things finish printing
 gap = compute_relaxation_gap(y_bar, t, v, R, p, Omega, 
@@ -136,4 +158,4 @@ print(f"mean_errors: {mean_errors}")
 if PRESET_TEST is None:
     test_file = input("\nEnter the name of the file to save this test case, i.e. 'test1' (leave empty to not save): ")
     if test_file:
-        generate_test_file(f"test_data/{test_file}.py", y_bar, t_gt, v_gt, p_gt, R_gt, Omega_gt)
+        generate_test_file(f"{tests_path}/{test_file}.py", y_bar, t_gt, v_gt, p_gt, R_gt, Omega_gt)

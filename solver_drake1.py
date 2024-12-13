@@ -10,8 +10,6 @@ import numpy as np
 import pandas as pd 
 import time
 
-from visualization_utils import *
-
 # Full State:
 #      d*N, d*K, d*d*N, d*d*(N-1)
 # x = [ t,   p,    R,    Omega ]
@@ -403,7 +401,7 @@ def solver(y_bar, N, K, d, verbose=False, tol=1e-3, cov_v=1, cov_omega=1, cov_me
         v_sol_arr = result.GetSolution(v)
         
         rank = np.linalg.matrix_rank(X_sol, rtol=tol, hermitian=True)
-        print(f"Rank of X: {rank}")
+        # print(f"Rank of X: {rank}")
         
         # Save X as csv
         X_sol[np.abs(X_sol) < 1e-3] = 0
@@ -416,7 +414,7 @@ def solver(y_bar, N, K, d, verbose=False, tol=1e-3, cov_v=1, cov_omega=1, cov_me
         x_sol = U[:, 0] * np.sqrt(S[0])
         if x_sol[R_0_idx] < 0:
             x_sol = -x_sol
-        print(f"Singular Values: {S}")
+        # print(f"Singular Values: {S}")
         
         t_sol = []
         v_sol = []

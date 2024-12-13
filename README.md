@@ -9,7 +9,7 @@ See our [paper](https://github.com/Michaelszeng/Certifiable-Kinematically-Constr
 **This codebase includes 4 different solvers**:
  - `cvxpy`: Solves the "Separated linear terms" formulation as described in our paper. This implementation is the most lightweight, directly encoding the SDP cost and constraint matrices.
  - `drake1`: Solves the "Separated linear terms" formulation as described in our paper. Implemented using `drake` toolbox, allowing much simpler problem-definition in least-squares form and automatic generation of the SDP cost and constraint matrices at the expense of more overhead.
- - `drake2`: Solves the SDP as described in our paper.
+ - `drake2`: Solves the main SDP formulation described in our paper.
  - `nonlinear`: Solves the non-convex least squares optimization using SNOPT.
 
 
