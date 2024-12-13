@@ -2,14 +2,7 @@ import cvxpy as cp
 import numpy as np
 import pandas as pd
 
-def certifiable_solver(measurements, verbose=False, tol=1e-6, cov_v=1, cov_omega=1, cov_meas=1):
-    # Number of timesteps and number of measurements
-    N = 1
-    for lm_meas in measurements.values():
-        for timestep in lm_meas.keys():
-            N = max(N, timestep + 1)
-    K = len(measurements)
-
+def solver(measurements, N, K, d, verbose=False, tol=1e-6, cov_v=1, cov_omega=1, cov_meas=1):
     # [Omega R p t]
     dim_x = 21 * N + 3 * K - 8
     dim_v = 3 * N - 3
@@ -199,7 +192,7 @@ def certifiable_solver(measurements, verbose=False, tol=1e-6, cov_v=1, cov_omega
     # Save results
     X.value[np.abs(X.value) < 1e-3] = 0
     DF = pd.DataFrame(X.value)
-    DF.to_csv("results.csv")
+    DF.to_csv("output_files/results.csv")
 
     return ang_vel, ang_pos, landmarks, lin_vel, lin_pos, rank, S
 

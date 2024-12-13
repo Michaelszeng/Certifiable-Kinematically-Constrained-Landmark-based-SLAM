@@ -6,9 +6,10 @@ sys.path.append(parent)
 
 import numpy as np
 from scipy.spatial.transform import Rotation
-from certifiable_solver import certifiable_solver
+from solver_cvxpy import certifiable_solver
 from solver_utils import *
 from evaluation import compute_relaxation_gap, compute_mean_errors
+from visualization_utils import visualize_results
 
 trials = [
     {

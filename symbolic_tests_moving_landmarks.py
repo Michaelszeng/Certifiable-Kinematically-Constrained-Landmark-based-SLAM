@@ -340,48 +340,7 @@ for i in range(N - 2):
     cost_binding = prog.AddCost(quad_form_omega)
     
     add_cost_to_qcqp(cost_binding)
-
-
-# Set initial guesses and Solve
-for i in range(N):
-    prog.SetInitialGuess(t[i], t_guess[i])
-    prog.SetInitialGuess(R[i], R_guess[i])
-for i in range(N-1):
-    prog.SetInitialGuess(v[i], v_guess[i])
-    prog.SetInitialGuess(Omega[i], Omega_guess[i])
-for k in range(K):
-    prog.SetInitialGuess(p[k], p_guess[k])
-    prog.SetInitialGuess(z[k], z_guess[k])
     
-print("Beginning Non-convex Solve.")
-start = time.time()
-result = Solve(prog)
-print(f"Non-convex Solve Time: {time.time() - start}")
-print(f"Solved using: {result.get_solver_id().name()}")
-
-if result.is_success():
-    t_sol = []
-    v_sol = []
-    R_sol = []
-    Omega_sol = []
-    p_sol = []
-    z_sol = []
-    for i in range(N):
-        t_sol.append(result.GetSolution(t[i]))
-        R_sol.append(result.GetSolution(R[i]))
-    for i in range(N-1):
-        v_sol.append(result.GetSolution(v[i]))
-        Omega_sol.append(result.GetSolution(Omega[i]))
-    for k in range(K):
-        p_sol.append(result.GetSolution(p[k]))
-        z_sol.append(result.GetSolution(z[k]))
-    
-    visualize_results(N, K, t_sol, v_sol, R_sol, p_sol, Omega_sol, z_sol)
-    
-else:
-    print("solve failed.")
-
-
 
 ################################################################################
 ##### CONVEX SDP RELAXATION
@@ -473,19 +432,6 @@ sdp_solver_options = SolverOptions()
 mosek_solver = MosekSolver()
 if not mosek_solver.available():
     print("WARNING: MOSEK unavailable.")
-    
-# Set Initial Guess for SDP
-x_guess = np.array(sum(t_guess, []) +
-                    sum(v_guess, []) +
-                    sum(p_guess, []) +
-                    [val for R in R_guess for val in R.T.flatten()] +
-                    [val for Omega in Omega_guess for val in Omega.T.flatten()] + 
-                    sum(z_guess, []) +
-                    [1]).reshape((np.shape(X)[0], 1))
-X_guess = x_guess @ x_guess.T
-for i in range(X.shape[0]):
-    for j in range(X.shape[1]):
-        prog_sdp.SetInitialGuess(X[i, j], X_guess[i, j])
 
 print("Beginning SDP Solve.")
 start = time.time()
@@ -534,66 +480,3 @@ else:
     print(f"{result.GetInfeasibleConstraintNames(prog_sdp)}")
     for constraint_binding in result.GetInfeasibleConstraints(prog_sdp):
         print(f"{constraint_binding.variables()}")
-
-
-
-
-
-
-# x = prog_sdp.NewContinuousVariables(prog.num_vars(), "x")  # x is a vector
-
-# # Add objective
-# prog_sdp.AddQuadraticCost(x.T @ Q_cost @ x)
-
-# # Add constraints
-# for i in range(len(Q_constraints)):
-#     Q_i = Q_constraints[i]
-#     b_i = b_constraints[i]
-#     c_i = c_constraints[i]
-
-#     # Constraint: 1/2 x^T Q_i x + b_i^T x + c_i == 0
-#     prog_sdp.AddQuadraticConstraint(Q=Q_i, b=b_i, lb=-c_i, ub=-c_i, vars=x)
-    
-# # Set initial guesses and Solve
-# x_guess = (sum(t_guess, []) +
-#             sum(v_guess, []) +
-#             sum(p_guess, []) +
-#             [val for R in R_guess for val in R.T.flatten()] +
-#             [val for Omega in Omega_guess for val in Omega.T.flatten()])
-# prog_sdp.SetInitialGuess(x, x_guess)
-
-# result = Solve(prog_sdp)
-
-# if result.is_success():
-#     t_sol = []
-#     v_sol = []
-#     R_sol = []
-#     Omega_sol = []
-#     p_sol = []
-    
-#     x_sol = result.GetSolution(x)
-    
-#     idx = 0
-    
-#     # Helper function to unflatten a 3x3 matrix from column-major order
-#     def unflatten_column_major(flat_matrix):
-#         return np.array(flat_matrix).reshape(3, 3).T
-
-#     t_sol = [x_sol[idx + i: idx + i + 3] for i in range(0, N * 3, 3)]
-#     idx += N * 3
-
-#     v_sol = [x_sol[idx + i: idx + i + 3] for i in range(0, (N-1) * 3, 3)]
-#     idx += (N-1) * 3
-
-#     p_sol = [x_sol[idx + i: idx + i + 3] for i in range(0, K * 3, 3)]
-#     idx += K * 3
-
-#     R_sol = [unflatten_column_major(x_sol[idx + i: idx + i + 9]) for i in range(0, N * 9, 9)]
-#     idx += N * 9
-
-#     Omega_sol = [unflatten_column_major(x_sol[idx + i: idx + i + 9]) for i in range(0, (N-1) * 9, 9)]
-    
-#     visualize_results(N, K, t_sol, v_sol, R_sol, p_sol, Omega_sol)
-    
-# else:
-#     print("solve failed.")

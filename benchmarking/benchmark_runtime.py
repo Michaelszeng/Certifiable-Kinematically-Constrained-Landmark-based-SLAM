@@ -7,7 +7,7 @@ sys.path.append(parent)
 import numpy as np
 import time
 from scipy.spatial.transform import Rotation
-from certifiable_solver import certifiable_solver
+from solver_cvxpy import certifiable_solver
 from solver_utils import *
 
 trials = [
