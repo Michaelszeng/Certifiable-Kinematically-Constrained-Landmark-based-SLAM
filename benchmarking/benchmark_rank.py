@@ -72,5 +72,5 @@ for trial in trials:
         
         average_ranks.append(np.mean(ranks))
 
-    np.save(f"{name}_rank.npy", average_ranks)
+    np.save(f"output_files/{name}_rank.npy", average_ranks)
 

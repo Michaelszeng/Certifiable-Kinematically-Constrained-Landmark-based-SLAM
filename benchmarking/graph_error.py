@@ -50,7 +50,7 @@ for key, text in texts.items():
     plt.tight_layout()
 
     # Save the plot as an image
-    plt.savefig(f"{key}_error_comparison.png")
+    plt.savefig(f"output_files/{key}_error_comparison.png")
     
     # Show the plot
     plt.show()

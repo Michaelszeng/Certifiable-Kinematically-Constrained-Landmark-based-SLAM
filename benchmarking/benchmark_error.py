@@ -96,5 +96,5 @@ for trial in trials:
         for key, val in curr_averages.items():
             averages[key].append(float(np.mean(val)))
 
-    np.save(f"{name}_error.npy", averages)
+    np.save(f"output_files/{name}_error.npy", averages)
 

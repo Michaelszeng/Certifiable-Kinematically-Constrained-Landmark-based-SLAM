@@ -34,12 +34,12 @@ if SOLVER == Solver.nonlinear:
         p_guess = p_gt + np.random.normal(loc=0, scale=0.1, size=p_gt.shape)
         return t_guess, R_guess, v_guess, Omega_guess, p_guess
 
-PRESET_TEST = None  # i.e. "test1"; Set to None to generate a test case with random landmark locations, or set to a specific test file to run that test case
+PRESET_TEST = None  # i.e. "test1"; Set to None to generate a newtest case with random landmark locations, or set to a specific test file to run that test case
 
 MEASUREMENT_NOISE = 0.01         # Standard deviation of Gaussian noise added to measurements
 MEASUREMENT_DROPOUT = 0.01       # Probability of measurements being dropped (to simulate occlusions or object detection failures)
 
-# Manually define the ground truth trajectory
+# If a pre-made test is not used, manually define the ground truth trajectory for a new test case
 if PRESET_TEST is None:
     # Example: Spiral trajectory
     K = 4  # Number of landmarks
@@ -68,7 +68,7 @@ if PRESET_TEST is None:
     cov_omega = 1
     cov_meas = 1
 
-    # Define ranges for each dimension
+    # Define ranges in which landmarks can be placed
     x_range = (-10, 10)
     y_range = (-10, 10)
     z_range = (-10, 10)

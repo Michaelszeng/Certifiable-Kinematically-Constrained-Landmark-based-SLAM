@@ -39,7 +39,7 @@ plt.grid(axis='y', linestyle='--', alpha=0.7)
 plt.tight_layout()
 
 # Save the plot as an image
-plt.savefig("rank_comparison.png")
+plt.savefig("output_files/rank_comparison.png")
 
 # Show the plot
 plt.show()

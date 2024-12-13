@@ -238,8 +238,4 @@ fabric.properties
 /external_wheels/
 
 # Generated test data
-*.csv
-test_data/
-*.npy
-*.png
-*.gif
+output_files

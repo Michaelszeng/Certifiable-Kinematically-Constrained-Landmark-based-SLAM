@@ -84,6 +84,6 @@ for trial in trials:
     average_times_lm = np.array(average_times_lm)
     average_times_t = np.array(average_times_t)
 
-    np.save(f"{name}_times_lm.npy", average_times_lm)
-    np.save(f"{name}_times_t.npy", average_times_t)
+    np.save(f"output_files/{name}_times_lm.npy", average_times_lm)
+    np.save(f"output_files/{name}_times_t.npy", average_times_t)
 
