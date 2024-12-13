@@ -21,7 +21,7 @@ class Solver(Enum):
 ################################################################################
 ##### USER-DEFINED PARAMETERS ##################################################
 ################################################################################
-SOLVER = Solver.cvxpy  # Select a solver from the Solver enums
+SOLVER = Solver.moving_landmarks  # Select a solver from the Solver enum
 
 if SOLVER == Solver.nonlinear:
     def initial_guesses():
@@ -35,8 +35,10 @@ if SOLVER == Solver.nonlinear:
         p_guess = p_gt + np.random.normal(loc=0, scale=0.1, size=p_gt.shape)
         return t_guess, R_guess, v_guess, Omega_guess, p_guess
 
-PRESET_TEST = "temp"  # i.e. "test1"; Set to None to generate a new test case with random landmark locations, or set to a specific test file name (without directory names) to run that test case
-# NOTE: if SOLVER == Solver.moving_landmarks, you can only use preset tests in the "moving_landmark_tests" folder.
+# Select a test case, set PRETEST to:
+#  - `None`` to generate a new test case with random landmark locations
+#  - A specific test file name within the "tests" folder (if SOLVER != Solver.moving_landmarks) or within the "tests/moving_landmark_tests" folder (if SOLVER == Solver.moving_landmarks)
+PRESET_TEST = "test_moving_landmarks_spiral"
 
 MEASUREMENT_NOISE = 0.01         # Standard deviation of Gaussian noise added to measurements
 MEASUREMENT_DROPOUT = 0.01       # Probability of measurements being dropped (to simulate occlusions or object detection failures)
