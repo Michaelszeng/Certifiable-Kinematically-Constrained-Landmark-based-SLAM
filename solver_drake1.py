@@ -3,12 +3,11 @@ from pydrake.all import (
     Solve,
     SolverOptions,
     MosekSolver,
+    CommonSolverOption,
 )
 
 import numpy as np
 import pandas as pd 
-import sys
-import os
 import time
 
 from visualization_utils import *
@@ -386,8 +385,9 @@ def solver(y_bar, N, K, d, verbose=False, tol=1e-3, cov_v=1, cov_omega=1, cov_me
     eps = 1e-6  # For regularization
     prog_sdp.AddPositiveSemidefiniteConstraint(X + eps*np.eye(X.shape[0]))
 
-
     sdp_solver_options = SolverOptions()
+    if verbose:  # Not working
+        sdp_solver_options.SetOption(CommonSolverOption.kPrintToConsole, 1)
     mosek_solver = MosekSolver()
     if not mosek_solver.available():
         print("WARNING: MOSEK unavailable.")
@@ -431,6 +431,11 @@ def solver(y_bar, N, K, d, verbose=False, tol=1e-3, cov_v=1, cov_omega=1, cov_me
             Omega_sol.append(x_sol[d*N + d*K + d*d*N + d*d*i : d*N + d*K + d*d*N + d*d*(i+1)].reshape((3,3)).T)  # No idea why this transpose is needed
         for k in range(K):
             p_sol.append(x_sol[d*N + d*k : d*N + d*(k+1)])
+        t_sol = np.array(t_sol)
+        v_sol = np.array(v_sol)
+        R_sol = np.array(R_sol)
+        Omega_sol = np.array(Omega_sol)
+        p_sol = np.array(p_sol)
             
         return Omega_sol, R_sol, p_sol, v_sol, t_sol, rank, S
 

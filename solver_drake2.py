@@ -3,12 +3,11 @@ from pydrake.all import (
     Solve,
     SolverOptions,
     MosekSolver,
+    CommonSolverOption,
 )
 
 import numpy as np
 import pandas as pd 
-import sys
-import os
 import time
 
 from visualization_utils import *
@@ -17,7 +16,7 @@ from visualization_utils import *
 #      d*N d*(N-1) d*K, d*d*N, d*d*(N-1)
 # x = [ t,    v,    p,    R,    Omega ]
 
-def solver(y_bar, N, K, d, verbose=False, tol=1e-3, cov_v=1, cov_omega=1, cov_meas=1):
+def solver(y_bar, N, K, d, verbose=True, tol=1e-3, cov_v=1, cov_omega=1, cov_meas=1):
     # Expand out covariance matrices
     Sigma_p = np.linalg.inv(cov_meas*np.eye(d))  # Covariance matrix for position
     Sigma_v = np.linalg.inv(cov_v*np.eye(d))  # Covariance matrix for velocity
@@ -364,6 +363,8 @@ def solver(y_bar, N, K, d, verbose=False, tol=1e-3, cov_v=1, cov_omega=1, cov_me
     print(f"Number of constraints in SDP: {len(prog_sdp.GetAllConstraints())}")
 
     sdp_solver_options = SolverOptions()
+    if verbose:  # Not working
+        sdp_solver_options.SetOption(CommonSolverOption.kPrintToConsole, 1)
     mosek_solver = MosekSolver()
     if not mosek_solver.available():
         print("WARNING: MOSEK unavailable.")
@@ -406,6 +407,11 @@ def solver(y_bar, N, K, d, verbose=False, tol=1e-3, cov_v=1, cov_omega=1, cov_me
             Omega_sol.append(x_sol[d*N + d*(N-1) + d*K + d*d*N + d*d*i : d*N + d*(N-1) + d*K + d*d*N + d*d*(i+1)].reshape((3,3)).T)  # No idea why this transpose is needed
         for k in range(K):
             p_sol.append(x_sol[d*N + d*(N-1) + d*k : d*N + d*(N-1) + d*(k+1)])
+        t_sol = np.array(t_sol)
+        v_sol = np.array(v_sol)
+        R_sol = np.array(R_sol)
+        Omega_sol = np.array(Omega_sol)
+        p_sol = np.array(p_sol)
         
         return Omega_sol, R_sol, p_sol, v_sol, t_sol, rank, S
         

@@ -111,34 +111,34 @@ def generate_test_file(file_path, measurements, true_lin_pos, true_lin_vel, true
         f.write("cov_omega = 1\n")
         f.write("cov_meas = 1\n\n")
 
-        # Write initial guesses
-        f.write("# Initial guesses:\n")
-        f.write("t_gt = [\n")
+        # Write ground truths
+        f.write("# Ground Truths:\n")
+        f.write("t_gt = np.array([\n")
         for pos in true_lin_pos:
             f.write(f"    {pos.tolist()},\n")
-        f.write("]\n")
+        f.write("])\n")
 
-        f.write("R_gt = [\n")
+        f.write("R_gt = np.array([\n")
         for ang in true_ang_pos:
-            f.write(f"    np.array({ang.tolist()}),\n")
-        f.write("]\n")
+            f.write(f"    {ang.tolist()},\n")
+        f.write("])\n")
 
         # Write linear velocity guess
-        f.write("v_gt = [\n")
+        f.write("v_gt = np.array([\n")
         for _ in range(len(true_lin_pos) - 1):  # N - 1
             f.write(f"    {true_lin_vel.tolist()},\n")
-        f.write("]\n")
+        f.write("])\n")
 
         # Write angular velocity guess
-        f.write("Omega_gt = [\n")
+        f.write("Omega_gt = np.array([\n")
         for _ in range(len(true_ang_pos) - 1):  # N - 1
-            f.write(f"    np.array({true_ang_vel.tolist()}),\n")
-        f.write("]\n")
+            f.write(f"    {true_ang_vel.tolist()},\n")
+        f.write("])\n")
 
-        f.write("p_gt = [\n")
+        f.write("p_gt = np.array([\n")
         for lm in true_landmarks:
             f.write(f"    {lm.tolist()},\n")
-        f.write("]\n")
+        f.write("])\n")
 
 def generate_measurements_moving_landmarks(true_lin_pos, true_ang_pos, true_landmarks, true_landmark_velocities, noise=0.0, dropout=0.0):
     measurements = {i : dict() for i in range(len(true_landmarks))}
@@ -212,8 +212,8 @@ def generate_test_file_moving_landmarks(file_path, measurements, true_lin_pos, t
         f.write("Sigma_v = np.linalg.inv(np.eye(d))  # Covariance matrix for velocity\n")
         f.write("Sigma_omega = np.linalg.inv(np.eye(d**2))  # Covariance matrix for angular velocity\n\n")
 
-        # Write initial guesses
-        f.write("# Initial guesses:\n")
+        # Write ground truths
+        f.write("# Ground Truths:\n")
         f.write("t_gt = [\n")
         for pos in true_lin_pos:
             f.write(f"    {pos.tolist()},\n")

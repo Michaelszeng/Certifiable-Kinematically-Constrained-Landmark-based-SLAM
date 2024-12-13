@@ -2,18 +2,15 @@ from pydrake.all import (
     MathematicalProgram,
     Solve,
     SolverOptions,
-    MosekSolver,
+    CommonSolverOption,
 )
 
 import numpy as np
-import pandas as pd 
-import sys
-import os
 import time
 
 from visualization_utils import *
 
-def solver(y_bar, N, K, d, verbose=False, tol=1e-6, cov_v=1, cov_omega=1, cov_meas=1):
+def solver(y_bar, N, K, d, verbose=False, tol=None, cov_v=1, cov_omega=1, cov_meas=1, t_guess=None, R_guess=None, v_guess=None, Omega_guess=None, p_guess=None):
     # Expand out covariance matrices
     Sigma_p = np.linalg.inv(cov_meas*np.eye(d))  # Covariance matrix for position
     Sigma_v = np.linalg.inv(cov_v*np.eye(d))  # Covariance matrix for velocity
@@ -149,18 +146,23 @@ def solver(y_bar, N, K, d, verbose=False, tol=1e-6, cov_v=1, cov_omega=1, cov_me
         prog.AddCost(quad_form_omega)
 
     # Set initial guesses and Solve
-    for i in range(N):
-        prog.SetInitialGuess(t[i], t_guess[i])
-        prog.SetInitialGuess(R[i], R_guess[i])
-    for i in range(N-1):
-        prog.SetInitialGuess(v[i], v_guess[i])
-        prog.SetInitialGuess(Omega[i], Omega_guess[i])
-    for k in range(K):
-        prog.SetInitialGuess(p[k], p_guess[k])
+    if t_guess is not None:  # assuming that all other guesses are not None as well
+        for i in range(N):
+            prog.SetInitialGuess(t[i], t_guess[i])
+            prog.SetInitialGuess(R[i], R_guess[i])
+        for i in range(N-1):
+            prog.SetInitialGuess(v[i], v_guess[i])
+            prog.SetInitialGuess(Omega[i], Omega_guess[i])
+        for k in range(K):
+            prog.SetInitialGuess(p[k], p_guess[k])
+            
+    solver_options = SolverOptions()
+    if verbose:  # Not working
+        solver_options.SetOption(CommonSolverOption.kPrintToConsole, 1)
         
     print("Beginning Non-convex Solve.")
     start = time.time()
-    result = Solve(prog)
+    result = Solve(prog, solver_options=solver_options)
     print(f"Non-convex Solve Time: {time.time() - start}")
     print(f"Solved using: {result.get_solver_id().name()}")
 
@@ -178,6 +180,11 @@ def solver(y_bar, N, K, d, verbose=False, tol=1e-6, cov_v=1, cov_omega=1, cov_me
             Omega_sol.append(result.GetSolution(Omega[i]))
         for k in range(K):
             p_sol.append(result.GetSolution(p[k]))
+        t_sol = np.array(t_sol)
+        v_sol = np.array(v_sol)
+        R_sol = np.array(R_sol)
+        Omega_sol = np.array(Omega_sol)
+        p_sol = np.array(p_sol)
         
         return Omega_sol, R_sol, p_sol, v_sol, t_sol, "N/A", "N/A"
         
