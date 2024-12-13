@@ -1,8 +1,8 @@
 # Certifiably-Optimal Kinematically-Constrained Landmark-based SLAM
 
-We present a certifiably-optimal kinematically-constrained landmark-based SLAM algorithm. Our solver convexifies the non-convex optimization problem of estimating the robot trajectory and landmark locations given a set of landmark observations, allowing our algorithm to deliver a certificate of optimality when the global solution is found.
+<img src="thumbnail.gif" alt="Thumbnail GIF" width="400">
 
-![](thumbnail.gif)
+We present a certifiably-optimal kinematically-constrained landmark-based SLAM algorithm. Our solver convexifies the non-convex optimization problem of estimating the robot trajectory and landmark locations given a set of landmark observations, allowing our algorithm to deliver a certificate of optimality when the global solution is found.
 
 See our [paper](https://github.com/Michaelszeng/Certifiable-Kinematically-Constrained-Landmark-based-SLAM/blob/main/ertifiably-Optimal%20Kinematically-Constrained%20Landmark-based%20SLAM.pdf) for more details.
 
