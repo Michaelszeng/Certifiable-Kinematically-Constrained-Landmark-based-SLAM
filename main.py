@@ -34,7 +34,7 @@ if SOLVER == Solver.nonlinear:
         p_guess = p_gt + np.random.normal(loc=0, scale=0.1, size=p_gt.shape)
         return t_guess, R_guess, v_guess, Omega_guess, p_guess
 
-PRESET_TEST = "test1"  # Set to None to generate a test case with random landmark locations, or set to a specific test file to run that test case
+PRESET_TEST = None  # i.e. "test1"; Set to None to generate a test case with random landmark locations, or set to a specific test file to run that test case
 
 MEASUREMENT_NOISE = 0.01         # Standard deviation of Gaussian noise added to measurements
 MEASUREMENT_DROPOUT = 0.01       # Probability of measurements being dropped (to simulate occlusions or object detection failures)
@@ -42,14 +42,17 @@ MEASUREMENT_DROPOUT = 0.01       # Probability of measurements being dropped (to
 # Manually define the ground truth trajectory
 if PRESET_TEST is None:
     # Example: Spiral trajectory
-    velocity_trajectory = np.array([1, 0, 0.5])
-    angular_velocity_trajectory = np.array([0, 0, 45])  # RPY angular velocity in degrees
     K = 4  # Number of landmarks
     N = 4  # Number of timesteps
     d = 3  # Number of dimensions of space
+    velocity_trajectory = np.array([[1, 0, 0.5]]*(N-1))
+    angular_velocity_trajectory = np.array([[0, 0, 45]]*(N-1))  # RPY angular velocity in degrees
 
     # Example: Snake trajectory
-    #v_gt = np.array([1, 0, 0])
+    # K = 4  # Number of landmarks
+    # N = 8  # Number of timesteps
+    # d = 3  # Number of dimensions of space
+    #v_gt = np.array([[1, 0, 0]]*(N-1))
     #true_rpy_vel = np.array([
     #    [0, 0, 0],
     #    [0, 0, 10],
@@ -59,8 +62,6 @@ if PRESET_TEST is None:
     #    [0, 0, -20],
     #    [0, 0, -10],
     #])  # RPY angular velocity in degrees
-    #K = 4  # Number of landmarks
-    #N = 8  # Number of timesteps
     
     # Velocity, angular velocity, and measurement covariances
     cov_v = 1
@@ -89,9 +90,6 @@ if PRESET_TEST is None:
     print_ground_truth(Omega_gt, R_gt, p_gt, v_gt, t_gt)
 
     y_bar = generate_measurements(t_gt, R_gt, p_gt, noise=MEASUREMENT_NOISE, dropout=MEASUREMENT_DROPOUT)
-    
-    # Generate a new `testX.py` file to save this test case
-    generate_test_file("test_data/benchmark_SPIRAL_N=8_K=8.py", y_bar, t_gt, v_gt, p_gt, R_gt, Omega_gt)
 else:
     # Dynamically import the specified test file
     current_folder = os.path.dirname(os.path.abspath(__file__))
@@ -133,3 +131,9 @@ print(f"Relaxation gap: {gap}")
 mean_errors = compute_mean_errors(y_bar, t, v, R, p, Omega, 
                                          t_gt, v_gt, R_gt, p_gt, Omega_gt)
 print(f"mean_errors: {mean_errors}")
+
+# Save test case data if user chooses
+if PRESET_TEST is None:
+    test_file = input("\nEnter the name of the file to save this test case, i.e. 'test1' (leave empty to not save): ")
+    if test_file:
+        generate_test_file(f"test_data/{test_file}.py", y_bar, t_gt, v_gt, p_gt, R_gt, Omega_gt)

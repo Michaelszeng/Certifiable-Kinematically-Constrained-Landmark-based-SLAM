@@ -6,11 +6,8 @@ def generate_ground_truth(num_timesteps, true_lin_vel, true_ang_vel):
     ang_pos[0] = np.eye(3)
 
     for i in range(1, num_timesteps):
-        lin_pos[i] = lin_pos[i-1] + ang_pos[i-1] @ true_lin_vel
-        if true_ang_vel.shape == (3, 3):
-            ang_pos[i] = ang_pos[i-1] @ true_ang_vel
-        else:
-            ang_pos[i] = ang_pos[i-1] @ true_ang_vel[i-1]
+        lin_pos[i] = lin_pos[i-1] + ang_pos[i-1] @ true_lin_vel[i-1]
+        ang_pos[i] = ang_pos[i-1] @ true_ang_vel[i-1]
 
     return lin_pos, ang_pos
 
@@ -125,14 +122,14 @@ def generate_test_file(file_path, measurements, true_lin_pos, true_lin_vel, true
 
         # Write linear velocity guess
         f.write("v_gt = np.array([\n")
-        for _ in range(len(true_lin_pos) - 1):  # N - 1
-            f.write(f"    {true_lin_vel.tolist()},\n")
+        for vel in true_lin_vel:  # N - 1
+            f.write(f"    {vel.tolist()},\n")
         f.write("])\n")
 
         # Write angular velocity guess
         f.write("Omega_gt = np.array([\n")
-        for _ in range(len(true_ang_pos) - 1):  # N - 1
-            f.write(f"    {true_ang_vel.tolist()},\n")
+        for ang_vel in true_ang_vel:  # N - 1
+            f.write(f"    {ang_vel.tolist()},\n")
         f.write("])\n")
 
         f.write("p_gt = np.array([\n")
