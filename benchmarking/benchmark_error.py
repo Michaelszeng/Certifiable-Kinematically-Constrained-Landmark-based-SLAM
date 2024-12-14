@@ -6,7 +6,7 @@ sys.path.append(parent)
 
 import numpy as np
 from scipy.spatial.transform import Rotation
-from solver_cvxpy import certifiable_solver
+from solver_cvxpy import solver
 from solver_utils import *
 from evaluation import compute_relaxation_gap, compute_mean_errors
 from visualization_utils import visualize_results
@@ -14,30 +14,80 @@ from visualization_utils import visualize_results
 trials = [
     {
         "name": "line_small",
-        "true_lin_vel": np.array([1, 0, 0]),
-        "true_rpy_vel": np.array([0, 0, 0]),
+        "true_lin_vel": np.array([[1, 0, 0],
+                                  [1, 0, 0],
+                                  [1, 0, 0]]),
+        "true_rpy_vel": np.array([[0, 0, 0],
+                                  [0, 0, 0],
+                                  [0, 0, 0]]),
         "num_landmarks": 4,
         "num_timesteps": 4,
     },
     {
         "name": "spiral_small",
-        "true_lin_vel": np.array([1, 0, 0.5]),
-        "true_rpy_vel": np.array([0, 0, 45]),
+        "true_lin_vel": np.array([[1, 0, 0.5],
+                                  [1, 0, 0.5],
+                                  [1, 0, 0.5]]),
+        "true_rpy_vel": np.array([[0, 0, 45],
+                                  [0, 0, 45],
+                                  [0, 0, 45]]),
         "num_landmarks": 4,
         "num_timesteps": 4,
     },
     {
+        "name": "line_large",
+        "true_lin_vel": np.array([[1, 0, 0],
+                                  [1, 0, 0],
+                                  [1, 0, 0],
+                                  [1, 0, 0],
+                                  [1, 0, 0],
+                                  [1, 0, 0],
+                                  [1, 0, 0]]),
+        "true_rpy_vel": np.array([[0, 0, 0],
+                                  [0, 0, 0],
+                                  [0, 0, 0],
+                                  [0, 0, 0],
+                                  [0, 0, 0],
+                                  [0, 0, 0],
+                                  [0, 0, 0]]),
+        "num_landmarks": 8,
+        "num_timesteps": 8,
+    },
+    {
+        "name": "spiral_large",
+        "true_lin_vel": np.array([[1, 0, 0.5],
+                                  [1, 0, 0.5],
+                                  [1, 0, 0.5],
+                                  [1, 0, 0.5],
+                                  [1, 0, 0.5],
+                                  [1, 0, 0.5],
+                                  [1, 0, 0.5]]),
+        "true_rpy_vel": np.array([[0, 0, 45],
+                                  [0, 0, 45],
+                                  [0, 0, 45],
+                                  [0, 0, 45],
+                                  [0, 0, 45],
+                                  [0, 0, 45],
+                                  [0, 0, 45]]),
+        "num_landmarks": 8,
+        "num_timesteps": 8,
+    },
+    {
         "name": "curve",
-        "true_lin_vel": np.array([1, 0, 0]),
-        "true_rpy_vel": np.array([
-            [0, 0, 0],
-            [0, 0, 10],
-            [0, 0, 20],
-            [0, 0, 10],
-            [0, 0, -10],
-            [0, 0, -20],
-            [0, 0, -10],
-        ]),
+        "true_lin_vel": np.array([[1, 0, 0],
+                                  [1, 0, 0],
+                                  [1, 0, 0],
+                                  [1, 0, 0],
+                                  [1, 0, 0],
+                                  [1, 0, 0],
+                                  [1, 0, 0]]),
+        "true_rpy_vel": np.array([[0, 0, 0],
+                                  [0, 0, 10],
+                                  [0, 0, 20],
+                                  [0, 0, 10],
+                                  [0, 0, -10],
+                                  [0, 0, -20],
+                                  [0, 0, -10]]),
         "num_landmarks": 4,
         "num_timesteps": 8,
     },
@@ -81,7 +131,7 @@ for trial in trials:
 
             measurements = generate_measurements(true_lin_pos, true_ang_pos, true_landmarks, noise=noise)
             
-            calc_ang_vel, calc_ang_pos, calc_landmarks, calc_lin_vel, calc_lin_pos, rank, S = certifiable_solver(measurements)
+            calc_ang_vel, calc_ang_pos, calc_landmarks, calc_lin_vel, calc_lin_pos, rank, S = solver(measurements, num_timesteps, num_landmarks, 3)
             print_results(calc_ang_vel, calc_ang_pos, calc_landmarks, calc_lin_vel, calc_lin_pos, rank, S)
 
             gap = compute_relaxation_gap(measurements, calc_lin_pos, calc_lin_vel, calc_ang_pos, calc_landmarks, calc_ang_vel, 
