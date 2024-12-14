@@ -7,9 +7,9 @@ We present a certifiably-optimal kinematically-constrained landmark-based SLAM a
 See our [paper](https://github.com/Michaelszeng/Certifiable-Kinematically-Constrained-Landmark-based-SLAM/blob/main/ertifiably-Optimal%20Kinematically-Constrained%20Landmark-based%20SLAM.pdf) for more details.
 
 **This codebase includes 5 different solvers**:
- - `cvxpy`: Solves the "Separated linear terms" formulation as described in our paper. This implementation is the most lightweight, directly encoding the SDP cost and constraint matrices.
- - `drake1`: Solves the "Separated linear terms" formulation as described in our paper. Implemented using `drake` toolbox, allowing much simpler problem-definition in least-squares form and automatic generation of the SDP cost and constraint matrices at the expense of more overhead.
- - `drake2`: Solves the main SDP formulation described in our paper.
+ - `cvxpy`: Solves the "Separated linear terms" formulation as described in our paper. This implementation usse the python library `cvxpy` and is the most lightweight, directly encoding the SDP cost and constraint matrices.
+ - `drake1`: Solves the "Separated linear terms" formulation as described in our paper. Implemented using the `drake` toolbox, allowing much simpler problem-definition in least-squares form and automatic generation of the SDP cost and constraint matrices at the expense of more overhead.
+ - `drake2`: Solves the main SDP formulation described in our paper, also using the `drake` toolbox.
  - `nonlinear`: Solves the non-convex least squares optimization using SNOPT.
  - `moving_landmarks`: For fun, we modified our algorithm to account for moving landmarks with constant linear velocity. This solver handles separate test cases with moving landmarks.
 
